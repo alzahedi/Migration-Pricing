@@ -1,0 +1,22 @@
+{
+    "name": "Spark with Scala",
+    "build": {
+      "dockerfile": "Dockerfile"
+    },
+    "settings": {
+      "editor.formatOnSave": true
+    },
+    "extensions": [
+      "scala-lang.scala",
+      "ms-azuretools.vscode-docker",
+      "scalameta.metals",
+      "redhat.java",
+      "scalameta.scala"
+    ],
+    "forwardPorts": [
+      4040
+    ],
+    "remoteUser": "vscode",
+    "postCreateCommand": "sudo chmod +x /home/vscode/setup.sh",
+    "postStartCommand": "/home/vscode/setup.sh"
+  }
