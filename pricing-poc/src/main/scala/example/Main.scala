@@ -6,6 +6,7 @@ import example.writer.JsonWriter
 import java.nio.file.Paths
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.types._
 
 object Main extends App {
 
@@ -61,6 +62,26 @@ object Main extends App {
 
       val isSqlDbOrMi =
         platformName == "azureSqlDatabase" || platformName == "azureSqlManagedInstance"
+
+// Define the schema for the array of structs
+      val structSchema = ArrayType(
+        StructType(
+          Seq(
+            StructField("Caching", StringType),
+            StructField("MaxIOPS", IntegerType),
+            StructField("MaxSizeInGib", IntegerType),
+            StructField("MaxThroughputInMbps", IntegerType),
+            StructField("Redundancy", StringType),
+            StructField("Size", IntegerType),
+            StructField("Type", StringType)
+          )
+        )
+      )
+
+// Define an empty array with the correct schema
+      val emptyStructArray = lit(null).cast(
+        structSchema
+      ) // Ensures an empty array with the correct type
 
       df.withColumn(
         "SkuRecommendationForServers",
@@ -127,7 +148,6 @@ object Main extends App {
               $"SkuRecommendationForServers.SkuRecommendationResults"
                 .getItem(0)("TargetSku")("PredictedLogSizeInMb")
                 .alias("predictedLogSizeInMb"),
-              // New Struct for Virtual Machine Size
               struct(
                 $"SkuRecommendationForServers.SkuRecommendationResults"
                   .getItem(0)("TargetSku")("VirtualMachineSize")("AzureSkuName")
@@ -160,9 +180,24 @@ object Main extends App {
               $"SkuRecommendationForServers.SkuRecommendationResults"
                 .getItem(0)("TargetSku")("LogDiskSizes")
                 .alias("logDiskSizes"),
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")("TempDbDiskSizes")
-                .alias("tempDbDiskSizes"),
+              when(
+                col("SkuRecommendationForServers.SkuRecommendationResults")(0)(
+                  "TargetSku"
+                )("TempDbDiskSizes").isNotNull &&
+                  size(
+                    col("SkuRecommendationForServers.SkuRecommendationResults")(
+                      0
+                    )(
+                      "TargetSku"
+                    )("TempDbDiskSizes")
+                  ) > 0,
+                expr(
+                  "transform(SkuRecommendationForServers.SkuRecommendationResults[0].TargetSku.TempDbDiskSizes, x -> struct(" +
+                    "x.Caching as caching, x.MaxIOPS as maxIOPS, x.MaxSizeInGib as maxSizeInGib, " +
+                    "x.MaxThroughputInMbps as maxThroughputInMbps, x.Redundancy as redundancy, " +
+                    "x.Size as size, x.Type as type))"
+                )
+              ).otherwise(emptyStructArray).alias("tempDbDiskSizes"),
               $"SkuRecommendationForServers.SkuRecommendationResults"
                 .getItem(0)("TargetSku")("ComputeSize")
                 .alias("computeSize")
