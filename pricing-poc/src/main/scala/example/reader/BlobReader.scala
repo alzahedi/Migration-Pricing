@@ -1,6 +1,7 @@
-package example.azure
+package example.reader
 import scala.util.{Failure, Success, Try}
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import example.azure.BlobService
 
 object BlobReader {
 
