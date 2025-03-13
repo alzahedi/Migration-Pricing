@@ -154,20 +154,12 @@ object Main extends App {
                   )
                   .alias("vCPUsAvailable")
               ).alias("virtualMachineSize"),
-              // New Array for Data Disk Sizes
-              expr(
-                "transform(SkuRecommendationForServers.SkuRecommendationResults[0].TargetSku.DataDiskSizes, x -> struct(" +
-                  "x.Caching as caching, x.MaxIOPS as maxIOPS, x.MaxSizeInGib as maxSizeInGib, " +
-                  "x.MaxThroughputInMbps as maxThroughputInMbps, x.Redundancy as redundancy, " +
-                  "x.Size as size, x.Type as type))"
-              ).alias("dataDiskSizes"),
-              // New Array for Log Disk Sizes
-              expr(
-                "transform(SkuRecommendationForServers.SkuRecommendationResults[0].TargetSku.LogDiskSizes, x -> struct(" +
-                  "x.Caching as caching, x.MaxIOPS as maxIOPS, x.MaxSizeInGib as maxSizeInGib, " +
-                  "x.MaxThroughputInMbps as maxThroughputInMbps, x.Redundancy as redundancy, " +
-                  "x.Size as size, x.Type as type))"
-              ).alias("logDiskSizes"),
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")("DataDiskSizes")
+                .alias("dataDiskSizes"),
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")("LogDiskSizes")
+                .alias("logDiskSizes"),
               $"SkuRecommendationForServers.SkuRecommendationResults"
                 .getItem(0)("TargetSku")("TempDbDiskSizes")
                 .alias("tempDbDiskSizes"),
