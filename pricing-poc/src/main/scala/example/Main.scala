@@ -61,6 +61,10 @@ object Main extends App {
           lit("Ready") // Assuming no extracted status for VMs
       }
 
+      // Define whether the extra fields should be included
+      val isSqlDbOrMi =
+        platformName == "azureSqlDatabase" || platformName == "azureSqlManagedInstance"
+
       df.withColumn(
         "SkuRecommendationForServers",
         explode($"SkuRecommendationForServers")
@@ -70,12 +74,65 @@ object Main extends App {
         )
         .withColumn(
           "targetSku",
-          struct(
-            $"SkuRecommendationForServers.SkuRecommendationResults"
-              .getItem(0)("TargetSku")("Category")
-              .dropFields("SqlTargetPlatform")
-              .alias("category")
-          )
+          if (isSqlDbOrMi) {
+            struct(
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")("Category")
+                .dropFields("SqlTargetPlatform")
+                .alias("category"),
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")
+                .getField("StorageMaxSizeInMb")
+                .alias("storageMaxSizeInMb"),
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")
+                .getField("PredictedDataSizeInMb")
+                .alias("predictedDataSizeInMb"),
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")
+                .getField("PredictedLogSizeInMb")
+                .alias("predictedLogSizeInMb"),
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")
+                .getField("MaxStorageIops")
+                .alias("maxStorageIops"),
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")
+                .getField("MaxThroughputMBps")
+                .alias("maxThroughputMBps"),
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")("ComputeSize")
+                .alias("computeSize")
+            )
+          } else {
+            struct(
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")("Category")
+                .dropFields("SqlTargetPlatform")
+                .alias("category"),
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")("PredictedDataSizeInMb")
+                .alias("predictedDataSizeInMb"),
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")("PredictedLogSizeInMb")
+                .alias("predictedLogSizeInMb"),
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")("VirtualMachineSize")
+                .alias("virtualMachineSize"),
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")("DataDiskSizes")
+                .alias("dataDiskSizes"),
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")("LogDiskSizes")
+                .alias("logDiskSizes"),
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")("TempDbDiskSizes")
+                .alias("tempDbDiskSizes"),
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")("ComputeSize")
+                .alias("computeSize")
+            )
+          }
         )
         .withColumn(
           "monthlyCost",
@@ -86,6 +143,9 @@ object Main extends App {
             $"SkuRecommendationForServers.SkuRecommendationResults"
               .getItem(0)("MonthlyCost")("StorageCost")
               .alias("storageCost"),
+            $"SkuRecommendationForServers.SkuRecommendationResults"
+              .getItem(0)("MonthlyCost")("IopsCost")
+              .alias("iopsCost"),
             $"SkuRecommendationForServers.SkuRecommendationResults"
               .getItem(0)("MonthlyCost")("TotalCost")
               .alias("totalCost")
