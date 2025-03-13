@@ -52,16 +52,13 @@ object Main extends App {
         suitabilityDf: DataFrame,
         platformName: String
     ): DataFrame = {
-      // Map platform names to the extracted recommendation status columns
       val recommendationStatusCol = platformName match {
         case "azureSqlDatabase" => $"AzureSqlDatabase_RecommendationStatus"
         case "azureSqlManagedInstance" =>
           $"AzureSqlManagedInstance_RecommendationStatus"
-        case "azureSqlVirtualMachine" =>
-          lit("Ready") // Assuming no extracted status for VMs
+        case "azureSqlVirtualMachine" => lit("Ready") // Default for VMs
       }
 
-      // Define whether the extra fields should be included
       val isSqlDbOrMi =
         platformName == "azureSqlDatabase" || platformName == "azureSqlManagedInstance"
 
@@ -76,40 +73,28 @@ object Main extends App {
           "targetSku",
           if (isSqlDbOrMi) {
             struct(
+              struct(
+                $"SkuRecommendationForServers.SkuRecommendationResults"
+                  .getItem(0)("TargetSku")("Category")("ComputeTier")
+                  .alias("computeTier"),
+                $"SkuRecommendationForServers.SkuRecommendationResults"
+                  .getItem(0)("TargetSku")("Category")("HardwareType")
+                  .alias("hardwareType"),
+                $"SkuRecommendationForServers.SkuRecommendationResults"
+                  .getItem(0)("TargetSku")("Category")("SqlPurchasingModel")
+                  .alias("sqlPurchasingModel"),
+                $"SkuRecommendationForServers.SkuRecommendationResults"
+                  .getItem(0)("TargetSku")("Category")("SqlServiceTier")
+                  .alias("sqlServiceTier"),
+                $"SkuRecommendationForServers.SkuRecommendationResults"
+                  .getItem(0)("TargetSku")("Category")(
+                    "ZoneRedundancyAvailable"
+                  )
+                  .alias("zoneRedundancyAvailable")
+              ).alias("category"),
               $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")("Category")
-                .dropFields("SqlTargetPlatform")
-                .alias("category"),
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")
-                .getField("StorageMaxSizeInMb")
+                .getItem(0)("TargetSku")("StorageMaxSizeInMb")
                 .alias("storageMaxSizeInMb"),
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")
-                .getField("PredictedDataSizeInMb")
-                .alias("predictedDataSizeInMb"),
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")
-                .getField("PredictedLogSizeInMb")
-                .alias("predictedLogSizeInMb"),
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")
-                .getField("MaxStorageIops")
-                .alias("maxStorageIops"),
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")
-                .getField("MaxThroughputMBps")
-                .alias("maxThroughputMBps"),
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")("ComputeSize")
-                .alias("computeSize")
-            )
-          } else {
-            struct(
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")("Category")
-                .dropFields("SqlTargetPlatform")
-                .alias("category"),
               $"SkuRecommendationForServers.SkuRecommendationResults"
                 .getItem(0)("TargetSku")("PredictedDataSizeInMb")
                 .alias("predictedDataSizeInMb"),
@@ -117,14 +102,72 @@ object Main extends App {
                 .getItem(0)("TargetSku")("PredictedLogSizeInMb")
                 .alias("predictedLogSizeInMb"),
               $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")("VirtualMachineSize")
-                .alias("virtualMachineSize"),
+                .getItem(0)("TargetSku")("MaxStorageIops")
+                .alias("maxStorageIops"),
               $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")("DataDiskSizes")
-                .alias("dataDiskSizes"),
+                .getItem(0)("TargetSku")("MaxThroughputMBps")
+                .alias("maxThroughputMBps"),
               $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")("LogDiskSizes")
-                .alias("logDiskSizes"),
+                .getItem(0)("TargetSku")("ComputeSize")
+                .alias("computeSize")
+            )
+          } else {
+            struct(
+              struct(
+                $"SkuRecommendationForServers.SkuRecommendationResults"
+                  .getItem(0)("TargetSku")("Category")("AvailableVmSkus")
+                  .alias("availableVmSkus"),
+                $"SkuRecommendationForServers.SkuRecommendationResults"
+                  .getItem(0)("TargetSku")("Category")("VirtualMachineFamily")
+                  .alias("virtualMachineFamily")
+              ).alias("category"),
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")("PredictedDataSizeInMb")
+                .alias("predictedDataSizeInMb"),
+              $"SkuRecommendationForServers.SkuRecommendationResults"
+                .getItem(0)("TargetSku")("PredictedLogSizeInMb")
+                .alias("predictedLogSizeInMb"),
+              // New Struct for Virtual Machine Size
+              struct(
+                $"SkuRecommendationForServers.SkuRecommendationResults"
+                  .getItem(0)("TargetSku")("VirtualMachineSize")("AzureSkuName")
+                  .alias("azureSkuName"),
+                $"SkuRecommendationForServers.SkuRecommendationResults"
+                  .getItem(0)("TargetSku")("VirtualMachineSize")("ComputeSize")
+                  .alias("computeSize"),
+                $"SkuRecommendationForServers.SkuRecommendationResults"
+                  .getItem(0)("TargetSku")("VirtualMachineSize")(
+                    "MaxNetworkInterfaces"
+                  )
+                  .alias("maxNetworkInterfaces"),
+                $"SkuRecommendationForServers.SkuRecommendationResults"
+                  .getItem(0)("TargetSku")("VirtualMachineSize")("SizeName")
+                  .alias("sizeName"),
+                $"SkuRecommendationForServers.SkuRecommendationResults"
+                  .getItem(0)("TargetSku")("VirtualMachineSize")(
+                    "VirtualMachineFamily"
+                  )
+                  .alias("virtualMachineFamily"),
+                $"SkuRecommendationForServers.SkuRecommendationResults"
+                  .getItem(0)("TargetSku")("VirtualMachineSize")(
+                    "vCPUsAvailable"
+                  )
+                  .alias("vCPUsAvailable")
+              ).alias("virtualMachineSize"),
+              // New Array for Data Disk Sizes
+              expr(
+                "transform(SkuRecommendationForServers.SkuRecommendationResults[0].TargetSku.DataDiskSizes, x -> struct(" +
+                  "x.Caching as caching, x.MaxIOPS as maxIOPS, x.MaxSizeInGib as maxSizeInGib, " +
+                  "x.MaxThroughputInMbps as maxThroughputInMbps, x.Redundancy as redundancy, " +
+                  "x.Size as size, x.Type as type))"
+              ).alias("dataDiskSizes"),
+              // New Array for Log Disk Sizes
+              expr(
+                "transform(SkuRecommendationForServers.SkuRecommendationResults[0].TargetSku.LogDiskSizes, x -> struct(" +
+                  "x.Caching as caching, x.MaxIOPS as maxIOPS, x.MaxSizeInGib as maxSizeInGib, " +
+                  "x.MaxThroughputInMbps as maxThroughputInMbps, x.Redundancy as redundancy, " +
+                  "x.Size as size, x.Type as type))"
+              ).alias("logDiskSizes"),
               $"SkuRecommendationForServers.SkuRecommendationResults"
                 .getItem(0)("TargetSku")("TempDbDiskSizes")
                 .alias("tempDbDiskSizes"),
@@ -151,7 +194,6 @@ object Main extends App {
               .alias("totalCost")
           )
         )
-        // Join with suitabilityDf to get recommendation status
         .join(suitabilityDf, lit(true), "left")
         .withColumn("recommendationStatus", recommendationStatusCol)
         .select(
@@ -164,9 +206,7 @@ object Main extends App {
           ).alias("recommendation")
         )
         .groupBy("platform")
-        .agg(
-          first("recommendation").alias("recommendation")
-        )
+        .agg(first("recommendation").alias("recommendation"))
     }
 
     // Transform each dataset separately
