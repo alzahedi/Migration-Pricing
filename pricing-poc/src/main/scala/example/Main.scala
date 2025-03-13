@@ -13,6 +13,7 @@ object Main extends App {
     .get(System.getProperty("user.dir"), "src", "main", "resources", "reports")
     .toString
   val skuReportsDirPath = Paths.get(reportsDirPath, "sku").toString
+  val suitabilityDirPath = Paths.get(reportsDirPath, "suitability").toString
 
   val spark = SparkUtils.createSparkSession()
 
@@ -23,24 +24,50 @@ object Main extends App {
     val dbFile = Paths.get(skuReportsDirPath, "sku-db.json").toString
     val miFile = Paths.get(skuReportsDirPath, "sku-mi.json").toString
     val vmFile = Paths.get(skuReportsDirPath, "sku-vm.json").toString
+    val suitabilityFile = Paths.get(suitabilityDirPath, "suit.json").toString
 
     val dbDf = JsonReader.readJson(spark, dbFile)
     val miDf = JsonReader.readJson(spark, miFile)
     val vmDf = JsonReader.readJson(spark, vmFile)
 
+    val suitDf = JsonReader.readJson(spark, suitabilityFile)
+
     dbDf.printSchema()
     miDf.printSchema()
     vmDf.printSchema()
+    suitDf.printSchema()
+
+    val suitabilityDf = suitDf
+      .withColumn("Servers", explode($"Servers")) // Flatten servers array
+      .select(
+        $"Servers.TargetReadinesses.AzureSqlDatabase.RecommendationStatus"
+          .alias("AzureSqlDatabase_RecommendationStatus"),
+        $"Servers.TargetReadinesses.AzureSqlManagedInstance.RecommendationStatus"
+          .alias("AzureSqlManagedInstance_RecommendationStatus")
+      )
 
     // Function to transform dataset
-    def transformData(df: DataFrame, platformName: String): DataFrame = {
+    def transformData(
+        df: DataFrame,
+        suitabilityDf: DataFrame,
+        platformName: String
+    ): DataFrame = {
+      // Map platform names to the extracted recommendation status columns
+      val recommendationStatusCol = platformName match {
+        case "azureSqlDatabase" => $"AzureSqlDatabase_RecommendationStatus"
+        case "azureSqlManagedInstance" =>
+          $"AzureSqlManagedInstance_RecommendationStatus"
+        case "azureSqlVirtualMachine" =>
+          lit("Ready") // Assuming no extracted status for VMs
+      }
+
       df.withColumn(
         "SkuRecommendationForServers",
         explode($"SkuRecommendationForServers")
       ).withColumn("platform", lit(platformName))
         .filter(
           size($"SkuRecommendationForServers.SkuRecommendationResults") > 0
-        ) // Ensure array is non-empty
+        )
         .withColumn(
           "targetSku",
           struct(
@@ -64,10 +91,13 @@ object Main extends App {
               .alias("totalCost")
           )
         )
+        // Join with suitabilityDf to get recommendation status
+        .join(suitabilityDf, lit(true), "left")
+        .withColumn("recommendationStatus", recommendationStatusCol)
         .select(
           $"platform",
           struct(
-            lit("ReadyWithConditions").alias("recommendationStatus"),
+            $"recommendationStatus".alias("recommendationStatus"),
             lit(0).alias("numberOfServerBlockerIssues"),
             $"targetSku",
             $"monthlyCost"
@@ -75,15 +105,16 @@ object Main extends App {
         )
         .groupBy("platform")
         .agg(
-          first("recommendation")
-            .alias("recommendation") // Ensure object format, not array
+          first("recommendation").alias("recommendation")
         )
     }
 
     // Transform each dataset separately
-    val dbTransformedDf = transformData(dbDf, "azureSqlDatabase")
-    val miTransformedDf = transformData(miDf, "azureSqlManagedInstance")
-    val vmTransformedDf = transformData(vmDf, "azureSqlVirtualMachine")
+    val dbTransformedDf = transformData(dbDf, suitabilityDf, "azureSqlDatabase")
+    val miTransformedDf =
+      transformData(miDf, suitabilityDf, "azureSqlManagedInstance")
+    val vmTransformedDf =
+      transformData(vmDf, suitabilityDf, "azureSqlVirtualMachine")
 
     // Creating a final JSON structure as a map (avoiding union)
     val jsonResultDf = dbTransformedDf

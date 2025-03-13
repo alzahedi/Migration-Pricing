@@ -18,7 +18,7 @@
                     "NumberOfNonOnlineDatabases": 0,
                     "TotalNumberOfDatabases": 1,
                     "Errors": [],
-                    "RecommendationStatus": "Ready",
+                    "RecommendationStatus": "NotReady",
                     "ServiceTiers": []
                 },
                 "AzureSqlManagedInstance": {
