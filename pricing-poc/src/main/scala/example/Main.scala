@@ -332,6 +332,66 @@ object Main extends App {
           )
         ).alias("skuRecommendationResults")
       )
+      .withColumn("skuRecommendationResults",
+        expr(
+          """
+          transform(
+            map_values(skuRecommendationResults),
+            x -> struct(
+              x.recommendationStatus as recommendationStatus,
+              x.numberOfServerBlockerIssues as numberOfServerBlockerIssues,
+              struct(
+                x.targetSku.category as category,
+                x.targetSku.storageMaxSizeInMb as storageMaxSizeInMb,
+                x.targetSku.predictedDataSizeInMb as predictedDataSizeInMb,
+                x.targetSku.predictedLogSizeInMb as predictedLogSizeInMb,
+                x.targetSku.maxStorageIops as maxStorageIops,
+                x.targetSku.maxThroughputMBps as maxThroughputMBps,
+                x.targetSku.computeSize as computeSize,
+                transform(
+                  x.targetSku.dataDiskSizes,
+                  y -> struct(
+                    y.Caching as caching,
+                    y.MaxIOPS as maxIOPS,
+                    y.MaxSizeInGib as maxSizeInGib,
+                    y.MaxThroughputInMbps as maxThroughputInMbps,
+                    y.Redundancy as redundancy,
+                    y.Size as size,
+                    y.Type as type
+                  )
+                ) as dataDiskSizes,
+                transform(
+                  x.targetSku.logDiskSizes,
+                  y -> struct(
+                    y.Caching as caching,
+                    y.MaxIOPS as maxIOPS,
+                    y.MaxSizeInGib as maxSizeInGib,
+                    y.MaxThroughputInMbps as maxThroughputInMbps,
+                    y.Redundancy as redundancy,
+                    y.Size as size,
+                    y.Type as type
+                  )
+                ) as logDiskSizes,
+                transform(
+                  x.targetSku.tempDbDiskSizes,
+                  y -> struct(
+                    y.Caching as caching,
+                    y.MaxIOPS as maxIOPS,
+                    y.MaxSizeInGib as maxSizeInGib,
+                    y.MaxThroughputInMbps as maxThroughputInMbps,
+                    y.Redundancy as redundancy,
+                    y.Size as size,
+                    y.Type as type
+                  )
+                ) as tempDbDiskSizes,
+                x.targetSku.virtualMachineSize as virtualMachineSize
+              ) as targetSku,
+              x.monthlyCost as monthlyCost
+            )
+          )
+          """
+        )
+    )
 
     jsonResultDf.printSchema()
     jsonResultDf.show(false)
