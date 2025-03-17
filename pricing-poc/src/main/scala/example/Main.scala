@@ -94,7 +94,7 @@ object Main extends App {
       )
     }
 
-    def extractCategory(df: DataFrame): DataFrame = {
+    def transformCategory(df: DataFrame): DataFrame = {
       df.withColumn(
         "category",
         struct(
@@ -117,42 +117,42 @@ object Main extends App {
       )
     }
 
-    def extractComputeSize(df: DataFrame): DataFrame =
+    def transformComputeSize(df: DataFrame): DataFrame =
       df.withColumn(
         "computeSize",
         $"SkuRecommendationForServers.SkuRecommendationResults"
           .getItem(0)("TargetSku")("ComputeSize")
       )
 
-    def extractStorageMaxSize(df: DataFrame): DataFrame =
+    def transformStorageMaxSize(df: DataFrame): DataFrame =
       df.withColumn(
         "storageMaxSizeInMb",
         $"SkuRecommendationForServers.SkuRecommendationResults"
           .getItem(0)("TargetSku")("StorageMaxSizeInMb")
       )
 
-    def extractPredictedDataSize(df: DataFrame): DataFrame =
+    def transformPredictedDataSize(df: DataFrame): DataFrame =
       df.withColumn(
         "predictedDataSizeInMb",
         $"SkuRecommendationForServers.SkuRecommendationResults"
           .getItem(0)("TargetSku")("PredictedDataSizeInMb")
       )
 
-    def extractPredictedLogSize(df: DataFrame): DataFrame =
+    def transformPredictedLogSize(df: DataFrame): DataFrame =
       df.withColumn(
         "predictedLogSizeInMb",
         $"SkuRecommendationForServers.SkuRecommendationResults"
           .getItem(0)("TargetSku")("PredictedLogSizeInMb")
       )
 
-    def extractMaxStorageIops(df: DataFrame): DataFrame =
+    def transformMaxStorageIops(df: DataFrame): DataFrame =
       df.withColumn(
         "maxStorageIops",
         $"SkuRecommendationForServers.SkuRecommendationResults"
           .getItem(0)("TargetSku")("MaxStorageIops")
       )
 
-    def extractMaxThroughputMBps(df: DataFrame): DataFrame =
+    def transformMaxThroughputMBps(df: DataFrame): DataFrame =
       df.withColumn(
         "maxThroughputMBps",
         $"SkuRecommendationForServers.SkuRecommendationResults"
@@ -162,13 +162,13 @@ object Main extends App {
 
     def transformTargetSku()(df: DataFrame): DataFrame =
       df
-        .transform(extractComputeSize)
-        .transform(extractStorageMaxSize)
-        .transform(extractPredictedDataSize)
-        .transform(extractPredictedLogSize)
-        .transform(extractMaxStorageIops)
-        .transform(extractMaxThroughputMBps)
-        .transform(extractCategory)
+        .transform(transformComputeSize)
+        .transform(transformStorageMaxSize)
+        .transform(transformPredictedDataSize)
+        .transform(transformPredictedLogSize)
+        .transform(transformMaxStorageIops)
+        .transform(transformMaxThroughputMBps)
+        .transform(transformCategory)
         .withColumn(
           "targetSku",
           struct(
@@ -184,14 +184,14 @@ object Main extends App {
 
     def transformTargetSkuSqlVm()(df: DataFrame): DataFrame =
       df
-        .transform(extractComputeSize)
-        .transform(extractPredictedDataSize)
-        .transform(extractPredictedLogSize)
-        .transform(extractCategorySqlVM)
-        .transform(extractDiskSize("DataDiskSizes")(_))
-        .transform(extractDiskSize("LogDiskSizes")(_))
-        .transform(extractDiskSize("TempDbDiskSizes")(_))
-        .transform(extractVirtualMachineSize)
+        .transform(transformComputeSize)
+        .transform(transformPredictedDataSize)
+        .transform(transformPredictedLogSize)
+        .transform(transformCategorySqlVM)
+        .transform(transformDiskSize("DataDiskSizes")(_))
+        .transform(transformDiskSize("LogDiskSizes")(_))
+        .transform(transformDiskSize("TempDbDiskSizes")(_))
+        .transform(transformVirtualMachineSize)
         .withColumn(
           "targetSku",
           struct(
@@ -206,7 +206,7 @@ object Main extends App {
           )
         )
     
-    def extractCategorySqlVM(df: DataFrame): DataFrame = {
+    def transformCategorySqlVM(df: DataFrame): DataFrame = {
       df.withColumn(
         "category",
         struct(
@@ -220,7 +220,7 @@ object Main extends App {
       )
     }   
 
-    def extractVirtualMachineSize(df: DataFrame): DataFrame = {
+    def transformVirtualMachineSize(df: DataFrame): DataFrame = {
       df.withColumn(
         "virtualMachineSize",
         struct(
@@ -246,7 +246,7 @@ object Main extends App {
       )
     }
 
-    def extractDiskSize(diskSize: String)(df: DataFrame): DataFrame = {
+    def transformDiskSize(diskSize: String)(df: DataFrame): DataFrame = {
       val colName = diskSize.head.toLower + diskSize.tail
       df.withColumn(
         colName, 
