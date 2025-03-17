@@ -7,6 +7,7 @@ import java.nio.file.Paths
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.Column
 
 object Main extends App {
 
@@ -33,11 +34,6 @@ object Main extends App {
 
     val suitDf = JsonReader.readJson(spark, suitabilityFile)
 
-    dbDf.printSchema()
-    miDf.printSchema()
-    vmDf.printSchema()
-    suitDf.printSchema()
-
     val suitabilityDf = suitDf
       .withColumn("Servers", explode($"Servers")) // Flatten servers array
       .select(
@@ -47,201 +43,278 @@ object Main extends App {
           .alias("AzureSqlManagedInstance_RecommendationStatus")
       )
 
-    // Function to transform dataset
-    def transformData(
-        df: DataFrame,
-        suitabilityDf: DataFrame,
-        platformName: String
-    ): DataFrame = {
+    // Break up large monolith into smaller functions
+
+    def transformSqlDb()(df: DataFrame): DataFrame = {
+      df.withColumn(
+        "SkuRecommendationForServers",
+        explode($"SkuRecommendationForServers")
+      ).withColumn("platform", lit("azureSqlDatabase"))
+        .transform(filterSkuRecommendationResults())
+        .transform(transformTargetSku())
+        .transform(transformMonthlyCost())
+    }
+
+    def transformSqlMi()(df: DataFrame): DataFrame = {
+      df.withColumn(
+        "SkuRecommendationForServers",
+        explode($"SkuRecommendationForServers")
+      ).withColumn("platform", lit("azureSqlManagedInstance"))
+        .transform(filterSkuRecommendationResults())
+        .transform(transformTargetSku())
+        .transform(transformMonthlyCost())
+    }
+
+    def selectFields()(df: DataFrame): DataFrame = {
+      df.select(
+        $"platform",
+        struct(
+          $"recommendationStatus".alias("recommendationStatus"),
+          lit(0).alias("numberOfServerBlockerIssues"),
+          $"targetSku",
+          $"monthlyCost"
+        ).alias("recommendation")
+      )
+    }
+
+    def joinSuitability(platformName: String)(df: DataFrame, suitDf: DataFrame): DataFrame = {
       val recommendationStatusCol = platformName match {
         case "azureSqlDatabase" => $"AzureSqlDatabase_RecommendationStatus"
         case "azureSqlManagedInstance" =>
           $"AzureSqlManagedInstance_RecommendationStatus"
-        case "azureSqlVirtualMachine" => lit("Ready") // Default for VMs
+        case "azureSqlVirtualMachine" => lit("Ready")
       }
+      df.join(suitDf, lit(true), "left")
+        .withColumn("recommendationStatus", recommendationStatusCol)
+    }
 
-      val isSqlDbOrMi =
-        platformName == "azureSqlDatabase" || platformName == "azureSqlManagedInstance"
+    def filterSkuRecommendationResults()(df: DataFrame): DataFrame = {
+      df.filter(
+        size($"SkuRecommendationForServers.SkuRecommendationResults") > 0
+      )
+    }
 
-// Define the schema for the array of structs
-      val structSchema = ArrayType(
-        StructType(
-          Seq(
-            StructField("Caching", StringType),
-            StructField("MaxIOPS", IntegerType),
-            StructField("MaxSizeInGib", IntegerType),
-            StructField("MaxThroughputInMbps", IntegerType),
-            StructField("Redundancy", StringType),
-            StructField("Size", IntegerType),
-            StructField("Type", StringType)
+    def extractCategory(df: DataFrame): DataFrame = {
+      df.withColumn(
+        "category",
+        struct(
+          col("SkuRecommendationForServers.SkuRecommendationResults")
+            .getItem(0)("TargetSku")("Category")("ComputeTier")
+            .alias("computeTier"),
+          col("SkuRecommendationForServers.SkuRecommendationResults")
+            .getItem(0)("TargetSku")("Category")("HardwareType")
+            .alias("hardwareType"),
+          col("SkuRecommendationForServers.SkuRecommendationResults")
+            .getItem(0)("TargetSku")("Category")("SqlPurchasingModel")
+            .alias("sqlPurchasingModel"),
+          col("SkuRecommendationForServers.SkuRecommendationResults")
+            .getItem(0)("TargetSku")("Category")("SqlServiceTier")
+            .alias("sqlServiceTier"),
+          col("SkuRecommendationForServers.SkuRecommendationResults")
+            .getItem(0)("TargetSku")("Category")("ZoneRedundancyAvailable")
+            .alias("zoneRedundancyAvailable")
+        )
+      )
+    }
+
+    def extractComputeSize(df: DataFrame): DataFrame =
+      df.withColumn(
+        "computeSize",
+        $"SkuRecommendationForServers.SkuRecommendationResults"
+          .getItem(0)("TargetSku")("ComputeSize")
+      )
+
+    def extractStorageMaxSize(df: DataFrame): DataFrame =
+      df.withColumn(
+        "storageMaxSizeInMb",
+        $"SkuRecommendationForServers.SkuRecommendationResults"
+          .getItem(0)("TargetSku")("StorageMaxSizeInMb")
+      )
+
+    def extractPredictedDataSize(df: DataFrame): DataFrame =
+      df.withColumn(
+        "predictedDataSizeInMb",
+        $"SkuRecommendationForServers.SkuRecommendationResults"
+          .getItem(0)("TargetSku")("PredictedDataSizeInMb")
+      )
+
+    def extractPredictedLogSize(df: DataFrame): DataFrame =
+      df.withColumn(
+        "predictedLogSizeInMb",
+        $"SkuRecommendationForServers.SkuRecommendationResults"
+          .getItem(0)("TargetSku")("PredictedLogSizeInMb")
+      )
+
+    def extractMaxStorageIops(df: DataFrame): DataFrame =
+      df.withColumn(
+        "maxStorageIops",
+        $"SkuRecommendationForServers.SkuRecommendationResults"
+          .getItem(0)("TargetSku")("MaxStorageIops")
+      )
+
+    def extractMaxThroughputMBps(df: DataFrame): DataFrame =
+      df.withColumn(
+        "maxThroughputMBps",
+        $"SkuRecommendationForServers.SkuRecommendationResults"
+          .getItem(0)("TargetSku")("MaxThroughputMBps")
+      )
+
+
+    def transformTargetSku()(df: DataFrame): DataFrame =
+      df
+        .transform(extractComputeSize)
+        .transform(extractStorageMaxSize)
+        .transform(extractPredictedDataSize)
+        .transform(extractPredictedLogSize)
+        .transform(extractMaxStorageIops)
+        .transform(extractMaxThroughputMBps)
+        .transform(extractCategory)
+        .withColumn(
+          "targetSku",
+          struct(
+            $"category",
+            $"storageMaxSizeInMb",
+            $"predictedDataSizeInMb",
+            $"predictedLogSizeInMb",
+            $"maxStorageIops",
+            $"maxThroughputMBps",
+            $"computeSize"
           )
+        )
+
+    def transformTargetSkuSqlVm()(df: DataFrame): DataFrame =
+      df
+        .transform(extractComputeSize)
+        .transform(extractPredictedDataSize)
+        .transform(extractPredictedLogSize)
+        .transform(extractCategorySqlVM)
+        .transform(extractDiskSize("DataDiskSizes")(_))
+        .transform(extractDiskSize("LogDiskSizes")(_))
+        .transform(extractDiskSize("TempDbDiskSizes")(_))
+        .transform(extractVirtualMachineSize)
+        .withColumn(
+          "targetSku",
+          struct(
+            $"category",
+            $"predictedDataSizeInMb",
+            $"predictedLogSizeInMb",
+            $"virtualMachineSize",
+            $"dataDiskSizes",
+            $"logDiskSizes",
+            $"tempDbDiskSizes",
+            $"computeSize"
+          )
+        )
+    
+    def extractCategorySqlVM(df: DataFrame): DataFrame = {
+      df.withColumn(
+        "category",
+        struct(
+          col("SkuRecommendationForServers.SkuRecommendationResults")
+            .getItem(0)("TargetSku")("Category")("AvailableVmSkus")
+            .alias("availableVmSkus"),
+          col("SkuRecommendationForServers.SkuRecommendationResults")
+            .getItem(0)("TargetSku")("Category")("VirtualMachineFamily")
+            .alias("virtualMachineFamily")
+        )
+      )
+    }   
+
+    def extractVirtualMachineSize(df: DataFrame): DataFrame = {
+      df.withColumn(
+        "virtualMachineSize",
+        struct(
+          col("SkuRecommendationForServers.SkuRecommendationResults")
+            .getItem(0)("TargetSku")("VirtualMachineSize")("AzureSkuName")
+            .alias("azureSkuName"),
+          col("SkuRecommendationForServers.SkuRecommendationResults")
+            .getItem(0)("TargetSku")("VirtualMachineSize")("ComputeSize")
+            .alias("computeSize"),
+          col("SkuRecommendationForServers.SkuRecommendationResults")
+            .getItem(0)("TargetSku")("VirtualMachineSize")("MaxNetworkInterfaces")
+            .alias("maxNetworkInterfaces"),
+          col("SkuRecommendationForServers.SkuRecommendationResults")
+            .getItem(0)("TargetSku")("VirtualMachineSize")("SizeName")
+            .alias("sizeName"),
+          col("SkuRecommendationForServers.SkuRecommendationResults")
+            .getItem(0)("TargetSku")("VirtualMachineSize")("VirtualMachineFamily")
+            .alias("virtualMachineFamily"),
+          col("SkuRecommendationForServers.SkuRecommendationResults")
+            .getItem(0)("TargetSku")("VirtualMachineSize")("vCPUsAvailable")
+            .alias("vCPUsAvailable")
+        )
+      )
+    }
+
+    def extractDiskSize(diskSize: String)(df: DataFrame): DataFrame = {
+      val colName = diskSize.head.toLower + diskSize.tail
+      df.withColumn(
+        colName, 
+        col("SkuRecommendationForServers.SkuRecommendationResults")
+          .getItem(0)("TargetSku")(diskSize)
+      )
+    }
+
+
+    def transformMonthlyCost()(df: DataFrame): DataFrame =
+      df.withColumn(
+        "monthlyCost",
+        struct(
+          $"SkuRecommendationForServers.SkuRecommendationResults"
+            .getItem(0)("MonthlyCost")("ComputeCost")
+            .alias("computeCost"),
+          $"SkuRecommendationForServers.SkuRecommendationResults"
+            .getItem(0)("MonthlyCost")("StorageCost")
+            .alias("storageCost"),
+          $"SkuRecommendationForServers.SkuRecommendationResults"
+            .getItem(0)("MonthlyCost")("IopsCost")
+            .alias("iopsCost"),
+          $"SkuRecommendationForServers.SkuRecommendationResults"
+            .getItem(0)("MonthlyCost")("TotalCost")
+            .alias("totalCost")
         )
       )
 
-// Define an empty array with the correct schema
-      val emptyStructArray = lit(null).cast(
-        structSchema
-      ) // Ensures an empty array with the correct type
-
+    def transformSqlVm()(df: DataFrame): DataFrame = {
       df.withColumn(
         "SkuRecommendationForServers",
         explode($"SkuRecommendationForServers")
-      ).withColumn("platform", lit(platformName))
-        .filter(
-          size($"SkuRecommendationForServers.SkuRecommendationResults") > 0
-        )
-        .withColumn(
-          "targetSku",
-          if (isSqlDbOrMi) {
-            struct(
-              struct(
-                $"SkuRecommendationForServers.SkuRecommendationResults"
-                  .getItem(0)("TargetSku")("Category")("ComputeTier")
-                  .alias("computeTier"),
-                $"SkuRecommendationForServers.SkuRecommendationResults"
-                  .getItem(0)("TargetSku")("Category")("HardwareType")
-                  .alias("hardwareType"),
-                $"SkuRecommendationForServers.SkuRecommendationResults"
-                  .getItem(0)("TargetSku")("Category")("SqlPurchasingModel")
-                  .alias("sqlPurchasingModel"),
-                $"SkuRecommendationForServers.SkuRecommendationResults"
-                  .getItem(0)("TargetSku")("Category")("SqlServiceTier")
-                  .alias("sqlServiceTier"),
-                $"SkuRecommendationForServers.SkuRecommendationResults"
-                  .getItem(0)("TargetSku")("Category")(
-                    "ZoneRedundancyAvailable"
-                  )
-                  .alias("zoneRedundancyAvailable")
-              ).alias("category"),
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")("StorageMaxSizeInMb")
-                .alias("storageMaxSizeInMb"),
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")("PredictedDataSizeInMb")
-                .alias("predictedDataSizeInMb"),
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")("PredictedLogSizeInMb")
-                .alias("predictedLogSizeInMb"),
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")("MaxStorageIops")
-                .alias("maxStorageIops"),
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")("MaxThroughputMBps")
-                .alias("maxThroughputMBps"),
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")("ComputeSize")
-                .alias("computeSize")
-            )
-          } else {
-            struct(
-              struct(
-                $"SkuRecommendationForServers.SkuRecommendationResults"
-                  .getItem(0)("TargetSku")("Category")("AvailableVmSkus")
-                  .alias("availableVmSkus"),
-                $"SkuRecommendationForServers.SkuRecommendationResults"
-                  .getItem(0)("TargetSku")("Category")("VirtualMachineFamily")
-                  .alias("virtualMachineFamily")
-              ).alias("category"),
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")("PredictedDataSizeInMb")
-                .alias("predictedDataSizeInMb"),
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")("PredictedLogSizeInMb")
-                .alias("predictedLogSizeInMb"),
-              struct(
-                $"SkuRecommendationForServers.SkuRecommendationResults"
-                  .getItem(0)("TargetSku")("VirtualMachineSize")("AzureSkuName")
-                  .alias("azureSkuName"),
-                $"SkuRecommendationForServers.SkuRecommendationResults"
-                  .getItem(0)("TargetSku")("VirtualMachineSize")("ComputeSize")
-                  .alias("computeSize"),
-                $"SkuRecommendationForServers.SkuRecommendationResults"
-                  .getItem(0)("TargetSku")("VirtualMachineSize")(
-                    "MaxNetworkInterfaces"
-                  )
-                  .alias("maxNetworkInterfaces"),
-                $"SkuRecommendationForServers.SkuRecommendationResults"
-                  .getItem(0)("TargetSku")("VirtualMachineSize")("SizeName")
-                  .alias("sizeName"),
-                $"SkuRecommendationForServers.SkuRecommendationResults"
-                  .getItem(0)("TargetSku")("VirtualMachineSize")(
-                    "VirtualMachineFamily"
-                  )
-                  .alias("virtualMachineFamily"),
-                $"SkuRecommendationForServers.SkuRecommendationResults"
-                  .getItem(0)("TargetSku")("VirtualMachineSize")(
-                    "vCPUsAvailable"
-                  )
-                  .alias("vCPUsAvailable")
-              ).alias("virtualMachineSize"),
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")("DataDiskSizes")
-                .alias("dataDiskSizes"),
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")("LogDiskSizes")
-                .alias("logDiskSizes"),
-              when(
-                col("SkuRecommendationForServers.SkuRecommendationResults")(0)(
-                  "TargetSku"
-                )("TempDbDiskSizes").isNotNull &&
-                  size(
-                    col("SkuRecommendationForServers.SkuRecommendationResults")(
-                      0
-                    )(
-                      "TargetSku"
-                    )("TempDbDiskSizes")
-                  ) > 0,
-                expr(
-                  "transform(SkuRecommendationForServers.SkuRecommendationResults[0].TargetSku.TempDbDiskSizes, x -> struct(" +
-                    "x.Caching as caching, x.MaxIOPS as maxIOPS, x.MaxSizeInGib as maxSizeInGib, " +
-                    "x.MaxThroughputInMbps as maxThroughputInMbps, x.Redundancy as redundancy, " +
-                    "x.Size as size, x.Type as type))"
-                )
-              ).otherwise(emptyStructArray).alias("tempDbDiskSizes"),
-              $"SkuRecommendationForServers.SkuRecommendationResults"
-                .getItem(0)("TargetSku")("ComputeSize")
-                .alias("computeSize")
-            )
-          }
-        )
-        .withColumn(
-          "monthlyCost",
-          struct(
-            $"SkuRecommendationForServers.SkuRecommendationResults"
-              .getItem(0)("MonthlyCost")("ComputeCost")
-              .alias("computeCost"),
-            $"SkuRecommendationForServers.SkuRecommendationResults"
-              .getItem(0)("MonthlyCost")("StorageCost")
-              .alias("storageCost"),
-            $"SkuRecommendationForServers.SkuRecommendationResults"
-              .getItem(0)("MonthlyCost")("IopsCost")
-              .alias("iopsCost"),
-            $"SkuRecommendationForServers.SkuRecommendationResults"
-              .getItem(0)("MonthlyCost")("TotalCost")
-              .alias("totalCost")
-          )
-        )
-        .join(suitabilityDf, lit(true), "left")
-        .withColumn("recommendationStatus", recommendationStatusCol)
-        .select(
-          $"platform",
-          struct(
-            $"recommendationStatus".alias("recommendationStatus"),
-            lit(0).alias("numberOfServerBlockerIssues"),
-            $"targetSku",
-            $"monthlyCost"
-          ).alias("recommendation")
-        )
-        .groupBy("platform")
-        .agg(first("recommendation").alias("recommendation"))
+      ).withColumn("platform", lit("azureSqlVirtualMachine"))
+        .transform(filterSkuRecommendationResults())
+        .transform(transformTargetSkuSqlVm())
+        .transform(transformMonthlyCost())
     }
 
     // Transform each dataset separately
-    val dbTransformedDf = transformData(dbDf, suitabilityDf, "azureSqlDatabase")
-    val miTransformedDf =
-      transformData(miDf, suitabilityDf, "azureSqlManagedInstance")
-    val vmTransformedDf =
-      transformData(vmDf, suitabilityDf, "azureSqlVirtualMachine")
+    val dbTransformedDf = dbDf
+      .transform(transformSqlDb())
+      .transform(joinSuitability("azureSqlDatabase")(_, suitabilityDf))
+      .transform(selectFields())
+      .groupBy("platform")
+      .agg(first("recommendation").alias("recommendation"))
+
+    dbTransformedDf.printSchema()
+    dbTransformedDf.show(false)
+
+    val miTransformedDf = miDf
+      .transform(transformSqlMi())
+      .transform(joinSuitability("azureSqlManagedInstance")(_, suitabilityDf))
+      .transform(selectFields())
+      .groupBy("platform")
+      .agg(first("recommendation").alias("recommendation"))
+
+    miTransformedDf.printSchema()
+    miTransformedDf.show(false)
+
+    val vmTransformedDf = vmDf
+      .transform(transformSqlVm())
+      .transform(joinSuitability("azureSqlVirtualMachine")(_, suitabilityDf))
+      .transform(selectFields())
+      .groupBy("platform")
+      .agg(first("recommendation").alias("recommendation"))
+
+    vmTransformedDf.printSchema()
+    vmTransformedDf.show(false)
 
     // Creating a final JSON structure as a map (avoiding union)
     val jsonResultDf = dbTransformedDf
@@ -255,6 +328,9 @@ object Main extends App {
           )
         ).alias("skuRecommendationResults")
       )
+
+    jsonResultDf.printSchema()
+    jsonResultDf.show(false)
 
     val outputPath = Paths
       .get(
