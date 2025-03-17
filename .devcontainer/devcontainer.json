@@ -1,22 +1,5 @@
 {
-    "name": "Spark with Scala",
-    "build": {
-      "dockerfile": "Dockerfile"
-    },
-    "settings": {
-      "editor.formatOnSave": true
-    },
-    "extensions": [
-      "scala-lang.scala",
-      "ms-azuretools.vscode-docker",
-      "scalameta.metals",
-      "redhat.java",
-      "scalameta.scala"
-    ],
-    "forwardPorts": [
-      4040
-    ],
-    "remoteUser": "vscode",
-    "postCreateCommand": "sudo chmod +x /home/vscode/setup.sh",
-    "postStartCommand": "/home/vscode/setup.sh"
-  }
+  "name": "PricingPoc",
+  "image": "pricingpoc.azurecr.io/pricingdev:c5ec01b6c6370953d6e4adcc62bae6093f69e7859f920428cded41d7c75f2fea",
+  "remoteUser": "vscode"
+}

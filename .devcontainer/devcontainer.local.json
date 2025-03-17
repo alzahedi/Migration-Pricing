@@ -1,0 +1,21 @@
+{
+    "name": "Pricing-poc",
+    "build": {
+        "dockerfile": "Dockerfile.local"
+    },
+    "settings": {
+        "editor.formatOnSave": true
+    },
+    "extensions": [
+        "scala-lang.scala",
+        "ms-azuretools.vscode-docker",
+        "scalameta.metals",
+        "redhat.java",
+        "scalameta.scala"
+    ],
+    "forwardPorts": [
+        4040
+    ],
+    "postCreateCommand": "sudo chmod +x /home/vscode/setup.sh",
+    "postStartCommand": "/home/vscode/setup.sh"
+}
