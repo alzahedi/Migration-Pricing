@@ -123,6 +123,8 @@ object Transformations {
   private def transformMaxThroughputMBps(df: DataFrame): DataFrame =
     df.withColumn("maxThroughputMBps", col("SkuRecommendationForServers.SkuRecommendationResults").getItem(0)("TargetSku")("MaxThroughputMBps"))
 
+
+
   private def transformDiskSize(diskSize: String)(df: DataFrame): DataFrame = {
     val colName = diskSize.head.toLower + diskSize.tail
     df.withColumn(colName, col("SkuRecommendationForServers.SkuRecommendationResults").getItem(0)("TargetSku")(diskSize))
@@ -152,6 +154,9 @@ object Transformations {
   private def transformMonthlyCost(df: DataFrame): DataFrame =
     df.withColumn("monthlyCost",
       struct(
+        col("SkuRecommendationForServers.SkuRecommendationResults").getItem(0)("MonthlyCost")("ComputeCost").alias("computeCost"),
+        col("SkuRecommendationForServers.SkuRecommendationResults").getItem(0)("MonthlyCost")("StorageCost").alias("storageCost"),
+        col("SkuRecommendationForServers.SkuRecommendationResults").getItem(0)("MonthlyCost")("IopsCost").alias("iopsCost"),
         col("SkuRecommendationForServers.SkuRecommendationResults").getItem(0)("MonthlyCost")("TotalCost").alias("totalCost")
       )
     )
@@ -169,63 +174,73 @@ object Transformations {
       )
       .withColumn("skuRecommendationResults",
         expr(
-        """
-          transform(
-            map_values(skuRecommendationResults),
-            x -> struct(
-              x.recommendationStatus as recommendationStatus,
-              x.numberOfServerBlockerIssues as numberOfServerBlockerIssues,
-              struct(
-                x.targetSku.category as category,
-                x.targetSku.storageMaxSizeInMb as storageMaxSizeInMb,
-                x.targetSku.predictedDataSizeInMb as predictedDataSizeInMb,
-                x.targetSku.predictedLogSizeInMb as predictedLogSizeInMb,
-                x.targetSku.maxStorageIops as maxStorageIops,
-                x.targetSku.maxThroughputMBps as maxThroughputMBps,
-                x.targetSku.computeSize as computeSize,
-                transform(
-                  x.targetSku.dataDiskSizes,
-                  y -> struct(
-                    y.Caching as caching,
-                    y.MaxIOPS as maxIOPS,
-                    y.MaxSizeInGib as maxSizeInGib,
-                    y.MaxThroughputInMbps as maxThroughputInMbps,
-                    y.Redundancy as redundancy,
-                    y.Size as size,
-                    y.Type as type
-                  )
-                ) as dataDiskSizes,
-                transform(
-                  x.targetSku.logDiskSizes,
-                  y -> struct(
-                    y.Caching as caching,
-                    y.MaxIOPS as maxIOPS,
-                    y.MaxSizeInGib as maxSizeInGib,
-                    y.MaxThroughputInMbps as maxThroughputInMbps,
-                    y.Redundancy as redundancy,
-                    y.Size as size,
-                    y.Type as type
-                  )
-                ) as logDiskSizes,
-                transform(
-                  x.targetSku.tempDbDiskSizes,
-                  y -> struct(
-                    y.Caching as caching,
-                    y.MaxIOPS as maxIOPS,
-                    y.MaxSizeInGib as maxSizeInGib,
-                    y.MaxThroughputInMbps as maxThroughputInMbps,
-                    y.Redundancy as redundancy,
-                    y.Size as size,
-                    y.Type as type
-                  )
-                ) as tempDbDiskSizes,
-                x.targetSku.virtualMachineSize as virtualMachineSize
-              ) as targetSku,
-              x.monthlyCost as monthlyCost
+          """
+          map_from_entries(
+            transform(
+              map_entries(skuRecommendationResults),
+              entry -> struct(
+                entry.key as platformName,  -- Platform name as key
+                struct(
+                  entry.value.recommendationStatus as recommendationStatus,
+                  entry.value.numberOfServerBlockerIssues as numberOfServerBlockerIssues,
+                  struct(
+                    entry.value.targetSku.category as category,  -- Retain full category
+                    entry.value.targetSku.storageMaxSizeInMb as storageMaxSizeInMb,
+                    entry.value.targetSku.predictedDataSizeInMb as predictedDataSizeInMb,
+                    entry.value.targetSku.predictedLogSizeInMb as predictedLogSizeInMb,
+                    entry.value.targetSku.maxStorageIops as maxStorageIops,
+                    entry.value.targetSku.maxThroughputMBps as maxThroughputMBps,
+                    entry.value.targetSku.computeSize as computeSize,
+                    transform(
+                      entry.value.targetSku.dataDiskSizes,
+                      y -> struct(
+                        y.Caching as caching,
+                        y.MaxIOPS as maxIOPS,
+                        y.MaxSizeInGib as maxSizeInGib,
+                        y.MaxThroughputInMbps as maxThroughputInMbps,
+                        y.Redundancy as redundancy,
+                        y.Size as size,
+                        y.Type as type
+                      )
+                    ) as dataDiskSizes,
+                    transform(
+                      entry.value.targetSku.logDiskSizes,
+                      y -> struct(
+                        y.Caching as caching,
+                        y.MaxIOPS as maxIOPS,
+                        y.MaxSizeInGib as maxSizeInGib,
+                        y.MaxThroughputInMbps as maxThroughputInMbps,
+                        y.Redundancy as redundancy,
+                        y.Size as size,
+                        y.Type as type
+                      )
+                    ) as logDiskSizes,
+                    transform(
+                      entry.value.targetSku.tempDbDiskSizes,
+                      y -> struct(
+                        y.Caching as caching,
+                        y.MaxIOPS as maxIOPS,
+                        y.MaxSizeInGib as maxSizeInGib,
+                        y.MaxThroughputInMbps as maxThroughputInMbps,
+                        y.Redundancy as redundancy,
+                        y.Size as size,
+                        y.Type as type
+                      )
+                    ) as tempDbDiskSizes,
+                    entry.value.targetSku.virtualMachineSize as virtualMachineSize
+                  ) as targetSku,
+                  struct(
+                    entry.value.monthlyCost.computeCost as computeCost,
+                    entry.value.monthlyCost.storageCost as storageCost,
+                    entry.value.monthlyCost.iopsCost as iopsCost,
+                    entry.value.monthlyCost.totalCost as totalCost
+                  ) as monthlyCost
+                )
+              )
             )
           )
-        """
+          """
+        )
       )
-    )
-  } 
-} 
+    } 
+  }   
