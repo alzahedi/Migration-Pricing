@@ -11,11 +11,13 @@ import org.apache.spark.sql.Column
 
 object Main extends App {
 
-  val reportsDirPath = Paths
-    .get(System.getProperty("user.dir"), "src", "main", "resources", "reports")
-    .toString
+  val reportsDirPath = Paths.get(System.getProperty("user.dir"), "src", "main", "resources", "reports").toString
+  val log4jConfigPath = Paths.get(System.getProperty("user.dir"), "log4j2.properties").toString
+  System.setProperty("log4j.configurationFile", s"file://$log4jConfigPath")
+
   val skuReportsDirPath = Paths.get(reportsDirPath, "sku").toString
   val suitabilityDirPath = Paths.get(reportsDirPath, "suitability").toString
+  val sampleReportsDirPath = Paths.get(reportsDirPath, "samples").toString
 
   val spark = SparkUtils.createSparkSession()
 
@@ -28,9 +30,11 @@ object Main extends App {
     val vmFile = Paths.get(skuReportsDirPath, "sku-vm.json").toString
     val suitabilityFile = Paths.get(suitabilityDirPath, "suit.json").toString
 
+    val vmSchemaFile = Paths.get(sampleReportsDirPath, "sku-vm-full-fidelity.json").toString
+
     val dbDf = JsonReader.readJson(spark, dbFile)
     val miDf = JsonReader.readJson(spark, miFile)
-    val vmDf = JsonReader.readJson(spark, vmFile)
+    val vmDf = JsonReader.readJsonWithSchemaInferred(spark, vmFile, vmSchemaFile)
 
     val suitDf = JsonReader.readJson(spark, suitabilityFile)
 
@@ -328,6 +332,66 @@ object Main extends App {
           )
         ).alias("skuRecommendationResults")
       )
+      .withColumn("skuRecommendationResults",
+        expr(
+          """
+          transform(
+            map_values(skuRecommendationResults),
+            x -> struct(
+              x.recommendationStatus as recommendationStatus,
+              x.numberOfServerBlockerIssues as numberOfServerBlockerIssues,
+              struct(
+                x.targetSku.category as category,
+                x.targetSku.storageMaxSizeInMb as storageMaxSizeInMb,
+                x.targetSku.predictedDataSizeInMb as predictedDataSizeInMb,
+                x.targetSku.predictedLogSizeInMb as predictedLogSizeInMb,
+                x.targetSku.maxStorageIops as maxStorageIops,
+                x.targetSku.maxThroughputMBps as maxThroughputMBps,
+                x.targetSku.computeSize as computeSize,
+                transform(
+                  x.targetSku.dataDiskSizes,
+                  y -> struct(
+                    y.Caching as caching,
+                    y.MaxIOPS as maxIOPS,
+                    y.MaxSizeInGib as maxSizeInGib,
+                    y.MaxThroughputInMbps as maxThroughputInMbps,
+                    y.Redundancy as redundancy,
+                    y.Size as size,
+                    y.Type as type
+                  )
+                ) as dataDiskSizes,
+                transform(
+                  x.targetSku.logDiskSizes,
+                  y -> struct(
+                    y.Caching as caching,
+                    y.MaxIOPS as maxIOPS,
+                    y.MaxSizeInGib as maxSizeInGib,
+                    y.MaxThroughputInMbps as maxThroughputInMbps,
+                    y.Redundancy as redundancy,
+                    y.Size as size,
+                    y.Type as type
+                  )
+                ) as logDiskSizes,
+                transform(
+                  x.targetSku.tempDbDiskSizes,
+                  y -> struct(
+                    y.Caching as caching,
+                    y.MaxIOPS as maxIOPS,
+                    y.MaxSizeInGib as maxSizeInGib,
+                    y.MaxThroughputInMbps as maxThroughputInMbps,
+                    y.Redundancy as redundancy,
+                    y.Size as size,
+                    y.Type as type
+                  )
+                ) as tempDbDiskSizes,
+                x.targetSku.virtualMachineSize as virtualMachineSize
+              ) as targetSku,
+              x.monthlyCost as monthlyCost
+            )
+          )
+          """
+        )
+    )
 
     jsonResultDf.printSchema()
     jsonResultDf.show(false)

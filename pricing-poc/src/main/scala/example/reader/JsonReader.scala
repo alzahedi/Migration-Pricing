@@ -14,4 +14,16 @@ object JsonReader {
   ) = {
     spark.read.option("multiline", "true").schema(schema).json(filePath)
   }
+
+  def readJsonWithSchemaInferred(
+      spark: SparkSession,
+      payloadFilePath: String,
+      schemaSampleFilePath: String
+  ): DataFrame = spark.read.option("multiline", "true")
+                      .schema(
+                        spark.read.option("multiline", "true")
+                             .json(schemaSampleFilePath)
+                             .schema
+                       )
+                      .json(payloadFilePath)
 }
