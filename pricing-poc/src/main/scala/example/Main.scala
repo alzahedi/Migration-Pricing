@@ -9,12 +9,16 @@ import java.nio.file.Paths
 import example.calculations.PricingComputations
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import example.reader.BlobReader
 
 object Main extends App {
 
   val reportsDirPath = Paths.get(System.getProperty("user.dir"), "src", "main", "resources", "reports").toString
   val log4jConfigPath = Paths.get(System.getProperty("user.dir"), "log4j2.properties").toString
   System.setProperty("log4j.configurationFile", s"file://$log4jConfigPath")
+
+  val storageAccountName = "guptasnigdhatest"
+  val containerName = "pricing"
 
   val spark = SparkUtils.createSparkSession()
   try {
@@ -73,6 +77,11 @@ object Main extends App {
       .toString
 
     JsonWriter.writeToJsonFile(jsonResultDf, outputPath)
+
+    // Read from blob
+    val dataFrames = BlobReader.readJsonFilesFromBlob(spark, storageAccountName, containerName)
+    println(dataFrames)
+
   } finally {
     spark.stop()
   }
