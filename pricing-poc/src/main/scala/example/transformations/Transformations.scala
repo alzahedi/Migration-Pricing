@@ -179,7 +179,7 @@ object Transformations {
             transform(
               map_entries(skuRecommendationResults),
               entry -> struct(
-                entry.key as platformName,  -- Platform name as key
+                entry.key as platformName,
                 struct(
                   entry.value.recommendationStatus as recommendationStatus,
                   entry.value.numberOfServerBlockerIssues as numberOfServerBlockerIssues,
@@ -234,7 +234,18 @@ object Transformations {
                     entry.value.monthlyCost.storageCost as storageCost,
                     entry.value.monthlyCost.iopsCost as iopsCost,
                     entry.value.monthlyCost.totalCost as totalCost
-                  ) as monthlyCost
+                  ) as monthlyCost,
+                  transform(
+                    entry.value.monthlyCostOptions,
+                    y -> struct(
+                      y.keyName as keyName,
+                      struct(
+                        y.keyValue.computeCost as computeCost,
+                        y.keyValue.storageCost as storageCost,
+                        y.keyValue.iopsCost as iopsCost
+                      ) as keyValue
+                    )
+                  ) as monthlyCostOptions
                 )
               )
             )
@@ -243,4 +254,23 @@ object Transformations {
         )
       )
     } 
+
+  def mergePricingIntoRecommendation(df: DataFrame, pricingDf: DataFrame): DataFrame = {
+    // Convert pricingDf into an array of structs
+    val pricingArray = pricingDf
+        .agg(collect_list(struct("keyName", "keyValue")).as("monthlyCostOptions"))
+
+    // Perform cross join to add the array to all rows without dropping it
+    val mergedDf = df.crossJoin(pricingArray) // Add monthlyCostOptions to all rows
+        .withColumn(
+            "recommendation",
+            struct(
+                col("recommendation.*"), // Keep existing fields inside recommendation
+                col("monthlyCostOptions") // Add the new field inside recommendation
+            )
+        )
+        .drop("monthlyCostOptions")
+
+    mergedDf // Keep `monthlyCostOptions` as a top-level column
+  }
   }   

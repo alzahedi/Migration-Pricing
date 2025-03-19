@@ -5,6 +5,7 @@ import example.utils.SparkUtils
 import example.writer.JsonWriter
 import example.transformations.Transformations
 import java.nio.file.Paths
+import example.calculations.PricingComputations
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
@@ -37,14 +38,25 @@ object Main extends App {
     val miTransformedDf = Transformations.processSkuData(miDf, "azureSqlManagedInstance", suitabilityDf)
     val vmTransformedDf = Transformations.processSkuData(vmDf, "azureSqlVirtualMachine", suitabilityDf)
 
+    // Do pricing computations (For now just add in hardcoded data)
+    val dbPricingData = PricingComputations.computePricingForSqlDB(dbDf)
+    val dbData = Transformations.mergePricingIntoRecommendation(dbTransformedDf, dbPricingData)
+
+    val miPricingData = PricingComputations.computePricingForSqlMI(miDf)
+    val miData = Transformations.mergePricingIntoRecommendation(miTransformedDf, miPricingData)
+
+    val vmPricingData = PricingComputations.computePricingForSqlVM(vmDf)
+    val vmData = Transformations.mergePricingIntoRecommendation(vmTransformedDf, vmPricingData)
+
+
     // Print results
-    Seq(dbTransformedDf, miTransformedDf, vmTransformedDf).foreach { df =>
+    Seq(dbData, miData, vmData).foreach { df =>
       df.printSchema()
       df.show(false)
     }
 
     // Aggregate
-    val jsonResultDf = Transformations.aggregateSkuRecommendations(dbTransformedDf, miTransformedDf, vmTransformedDf)
+    val jsonResultDf = Transformations.aggregateSkuRecommendations(dbData, miData, vmData)
     jsonResultDf.printSchema()
     jsonResultDf.show(false)
 
