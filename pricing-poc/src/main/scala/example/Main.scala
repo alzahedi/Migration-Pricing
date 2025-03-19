@@ -4,6 +4,7 @@ import example.reader.JsonReader
 import example.utils.SparkUtils
 import example.writer.JsonWriter
 import example.transformations.Transformations
+import example.constants.PlatformType
 import java.nio.file.Paths
 import example.calculations.PricingComputations
 import org.apache.spark.sql.functions._
@@ -34,9 +35,9 @@ object Main extends App {
     val suitabilityDf = JsonReader.readJson(spark, jsonPaths("suitability")).transform(Transformations.transformSuitability)
 
     // Process transformations
-    val dbTransformedDf = Transformations.processSkuData(dbDf, "azureSqlDatabase", suitabilityDf)
-    val miTransformedDf = Transformations.processSkuData(miDf, "azureSqlManagedInstance", suitabilityDf)
-    val vmTransformedDf = Transformations.processSkuData(vmDf, "azureSqlVirtualMachine", suitabilityDf)
+    val dbTransformedDf = Transformations.processSkuData(dbDf, PlatformType.AzureSqlDatabase, suitabilityDf)
+    val miTransformedDf = Transformations.processSkuData(miDf, PlatformType.AzureSqlManagedInstance, suitabilityDf)
+    val vmTransformedDf = Transformations.processSkuData(vmDf, PlatformType.AzureSqlVirtualMachine, suitabilityDf)
 
     // Do pricing computations (For now just add in hardcoded data)
     val dbPricingData = PricingComputations.computePricingForSqlDB(dbDf)

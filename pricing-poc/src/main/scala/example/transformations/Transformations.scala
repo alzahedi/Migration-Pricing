@@ -2,6 +2,7 @@ package example.transformations
 
 import org.apache.spark.sql.{DataFrame}
 import org.apache.spark.sql.functions._
+import example.constants.PlatformType
 
 object Transformations {
 
@@ -15,7 +16,7 @@ object Transformations {
       )
   }
 
-  def processSkuData(df: DataFrame, platform: String, suitabilityDf: DataFrame): DataFrame = {
+  def processSkuData(df: DataFrame, platform: PlatformType, suitabilityDf: DataFrame): DataFrame = {
     df.transform(transformSku(platform))
       .transform(joinSuitability(platform, suitabilityDf))
       .transform(selectFields)
@@ -23,9 +24,9 @@ object Transformations {
       .agg(first("recommendation").alias("recommendation"))
   }
 
-  private def transformSku(platform: String)(df: DataFrame): DataFrame = {
+  private def transformSku(platform: PlatformType)(df: DataFrame): DataFrame = {
     df.withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
-      .withColumn("platform", lit(platform))
+      .withColumn("platform", lit(PlatformType.toString(platform)))
       .transform(filterSkuRecommendationResults())
       .transform(transformTargetSku(platform))
       .transform(transformMonthlyCost)
@@ -35,9 +36,9 @@ object Transformations {
     df.filter(size(col("SkuRecommendationForServers.SkuRecommendationResults")) > 0)
   }
 
-  private def transformTargetSku(platform: String)(df: DataFrame): DataFrame = {
+  private def transformTargetSku(platform: PlatformType)(df: DataFrame): DataFrame = {
     platform match {
-      case "azureSqlVirtualMachine" =>
+      case PlatformType.AzureSqlVirtualMachine =>
         df.transform(transformComputeSize)
           .transform(transformPredictedDataSize)
           .transform(transformPredictedLogSize)
@@ -59,12 +60,13 @@ object Transformations {
     }
   }
 
-  private def joinSuitability(platform: String, suitDf: DataFrame)(df: DataFrame): DataFrame = {
+  private def joinSuitability(platform: PlatformType, suitDf: DataFrame)(df: DataFrame): DataFrame = {
     val recommendationStatusCol = platform match {
-      case "azureSqlDatabase" => col("AzureSqlDatabase_RecommendationStatus")
-      case "azureSqlManagedInstance" => col("AzureSqlManagedInstance_RecommendationStatus")
-      case _ => lit("Ready")
+      case PlatformType.AzureSqlDatabase         => col("AzureSqlDatabase_RecommendationStatus")
+      case PlatformType.AzureSqlManagedInstance  => col("AzureSqlManagedInstance_RecommendationStatus")
+      case _                                     => lit("Ready")
     }
+
     df.join(suitDf, lit(true), "left")
       .withColumn("recommendationStatus", recommendationStatusCol)
   }
@@ -256,7 +258,6 @@ object Transformations {
     } 
 
   def mergePricingIntoRecommendation(df: DataFrame, pricingDf: DataFrame): DataFrame = {
-    // Convert pricingDf into an array of structs
     val pricingArray = pricingDf
         .agg(collect_list(struct("keyName", "keyValue")).as("monthlyCostOptions"))
 
@@ -271,6 +272,6 @@ object Transformations {
         )
         .drop("monthlyCostOptions")
 
-    mergedDf // Keep `monthlyCostOptions` as a top-level column
+    mergedDf
   }
   }   
