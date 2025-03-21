@@ -76,11 +76,7 @@ object Main extends App {
       )
       .toString
 
-    JsonWriter.writeToJsonFile(jsonResultDf, outputPath)
-
-    // Read from blob
-    val dataFrames = BlobReader.readJsonFilesFromBlob(spark, storageAccountName, containerName)
-    println(dataFrames)
+    JsonWriter.writeToJsonFile(jsonResultDf, outputPath)    
 
   } finally {
     spark.stop()

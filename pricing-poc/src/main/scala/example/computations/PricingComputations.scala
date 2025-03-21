@@ -3,6 +3,9 @@ package example.calculations
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import example.reader.JsonReader
+import example.constants.PlatformType
+import java.nio.file.Paths
 
 object PricingComputations {
 
@@ -39,7 +42,7 @@ object PricingComputations {
     ("With3YearRIAndProd", (222.13, 0.18, 0.0))
   )
 
-  private def computePricing(df: DataFrame, pricingData: Seq[(String, (Double, Double, Double))])(implicit spark: SparkSession): DataFrame = {
+  private def structurePricingData(df: DataFrame, pricingData: Seq[(String, (Double, Double, Double))])(implicit spark: SparkSession): DataFrame = {
     import spark.implicits._
 
     val data = pricingData.toDF("keyName", "keyValue")
@@ -55,17 +58,78 @@ object PricingComputations {
 
   def computePricingForSqlDB(df: DataFrame): DataFrame = {
     implicit val spark: SparkSession = df.sparkSession
-    computePricing(df, pricingData)
+    val pricingDataFrames = loadPricingDataFrames(PlatformType.AzureSqlDatabase)
+    val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
+    val storageDataFrame = pricingDataFrames.get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
+    calculateRIComputePricing(df, computeDataFrame, "1 Year")
+    structurePricingData(df, pricingData)
+  }
+
+  def calculateRIComputePricing(platformDf: DataFrame, computePriceDf: DataFrame, reservationTerm: String) = {
+
+    val flattenedDf = platformDf
+      .withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
+      .withColumn("SkuRecommendationResults", explode(col("SkuRecommendationForServers.SkuRecommendationResults")))
+      .select(
+        col("SkuRecommendationForServers.ServerName"),
+        col("SkuRecommendationResults.TargetSku"))
+    
+    flattenedDf.printSchema()
+  
+
+    // val filteredDf = df.filter(
+    // col("serviceName") === "SQL Database" &&
+    // col("skuName") === "vCore" &&
+    // col("productName").contains("General Purpose") &&
+    // col("productName").contains("Gen5") &&
+    // col("location") === "US West" &&
+    // col("type") === "Reservation" &&
+    // col("reservationTerm") === "1 Year" &&
+    // col("unitOfMeasure") === "1 Hour"
+    //)
+
+  }
+
+  def getServiceName(platformName: String): String = platformName match {
+    case "AzureSqlManagedInstance" => "SQL Managed Instance"
+    case "AzureSqlDatabase" => "SQL Database"
+    case _ => "Unknown Service" // Handle unexpected values
   }
 
   def computePricingForSqlMI(df: DataFrame): DataFrame = {
     implicit val spark: SparkSession = df.sparkSession
-    computePricing(df, pricingData)
+    structurePricingData(df, pricingData)
   }
 
   def computePricingForSqlVM(df: DataFrame): DataFrame = {
     implicit val spark: SparkSession = df.sparkSession
-    computePricing(df, pricingDataForSqlVM)
+    structurePricingData(df, pricingDataForSqlVM)
   }
 
+  def loadPricingDataFrames(platformType: PlatformType)(implicit spark: SparkSession): Map[String, DataFrame] = {
+    val fileMappings: Map[PlatformType, Map[String, String]] = Map(
+      PlatformType.AzureSqlDatabase -> Map(
+        "Compute" -> "SQL_DB_Compute.json",
+        // "License" -> "SQL_DB_License.json",
+        "Storage" -> "SQL_DB_Storage.json"
+      ),
+      PlatformType.AzureSqlManagedInstance -> Map(
+        "Compute" -> "SQL_MI_Compute.json",
+        // "License" -> "SQL_MI_License.json",
+        "Storage" -> "SQL_MI_Storage.json"
+      ),
+      PlatformType.AzureSqlVirtualMachine -> Map(
+        "Compute" -> "SQL_VM_Compute.json",
+        "Storage" -> "SQL_VM_Storage.json"
+      )
+    )
+
+    val pricingDataFolderPath = Paths.get(System.getProperty("user.dir"), "src", "main", "resources", "pricing").toString
+    val fileMapping = fileMappings.getOrElse(platformType, Map.empty)
+
+    fileMapping.map { case (category, fileName) =>
+      val filePath = s"$pricingDataFolderPath/$fileName"
+      category -> JsonReader.readJson(spark, filePath)
+    }
+  }
 }
