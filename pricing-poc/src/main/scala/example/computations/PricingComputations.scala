@@ -68,11 +68,6 @@ object PricingComputations {
     structurePricingData(df, pricingData)
   }
 
-  def getServiceName(platformName: String): String = platformName match {
-    case "AzureSqlManagedInstance" => "SQL Managed Instance"
-    case "AzureSqlDatabase" => "SQL Database"
-    case _ => "Unknown Service" // Handle unexpected values
-  }
 
   def computePricingForSqlMI(df: DataFrame): DataFrame = {
     implicit val spark: SparkSession = df.sparkSession
