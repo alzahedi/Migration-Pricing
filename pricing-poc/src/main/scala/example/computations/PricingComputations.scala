@@ -63,34 +63,9 @@ object PricingComputations {
     val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
     val storageDataFrame = pricingDataFrames.get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
     val pricingCalculator = new PaasPricingCalculator
-    val computeReservedCost = pricingCalculator.calculateReservedComputeCost(df, computeDataFrame, "1 Year")
-    println(s"Compute 1 year reserved cost $computeReservedCost")
+    val computeReservedCost = pricingCalculator.calculateReservedComputeCost(df, computeDataFrame, "3 Years")
+    println(s"Compute 3 years reserved cost for SQL DB $computeReservedCost")
     structurePricingData(df, pricingData)
-  }
-
-  def calculateRIComputePricing(platformDf: DataFrame, computePriceDf: DataFrame, reservationTerm: String) = {
-
-    val flattenedDf = platformDf
-      .withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
-      .withColumn("SkuRecommendationResults", explode(col("SkuRecommendationForServers.SkuRecommendationResults")))
-      .select(
-        col("SkuRecommendationForServers.ServerName"),
-        col("SkuRecommendationResults.TargetSku"))
-    
-    flattenedDf.printSchema()
-  
-
-    // val filteredDf = df.filter(
-    // col("serviceName") === "SQL Database" &&
-    // col("skuName") === "vCore" &&
-    // col("productName").contains("General Purpose") &&
-    // col("productName").contains("Gen5") &&
-    // col("location") === "US West" &&
-    // col("type") === "Reservation" &&
-    // col("reservationTerm") === "1 Year" &&
-    // col("unitOfMeasure") === "1 Hour"
-    //)
-
   }
 
   def getServiceName(platformName: String): String = platformName match {
@@ -101,6 +76,12 @@ object PricingComputations {
 
   def computePricingForSqlMI(df: DataFrame): DataFrame = {
     implicit val spark: SparkSession = df.sparkSession
+    val pricingDataFrames = loadPricingDataFrames(PlatformType.AzureSqlManagedInstance)
+    val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
+    val storageDataFrame = pricingDataFrames.get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
+    val pricingCalculator = new PaasPricingCalculator
+    val computeReservedCost = pricingCalculator.calculateReservedComputeCost(df, computeDataFrame, "1 Year")
+    println(s"Compute 1 years reserved cost for SQL MI $computeReservedCost")
     structurePricingData(df, pricingData)
   }
 
