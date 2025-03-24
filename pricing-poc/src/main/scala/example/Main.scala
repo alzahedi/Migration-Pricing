@@ -62,21 +62,21 @@ object Main extends App {
 
     // Aggregate
     val jsonResultDf = Transformations.aggregateSkuRecommendations(dbData, miData, vmData)
-    // jsonResultDf.printSchema()
-    // jsonResultDf.show(false)
+    jsonResultDf.printSchema()
+    jsonResultDf.show(false)
 
-    // val outputPath = Paths
-    //   .get(
-    //     System.getProperty("user.dir"),
-    //     "src",
-    //     "main",
-    //     "resources",
-    //     "output",
-    //     "output.json"
-    //   )
-    //   .toString
+    val outputPath = Paths
+      .get(
+        System.getProperty("user.dir"),
+        "src",
+        "main",
+        "resources",
+        "output",
+        "output.json"
+      )
+      .toString
 
-    // JsonWriter.writeToJsonFile(jsonResultDf, outputPath)    
+    JsonWriter.writeToJsonFile(jsonResultDf, outputPath)    
 
   } finally {
     spark.stop()

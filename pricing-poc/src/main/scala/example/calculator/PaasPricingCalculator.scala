@@ -62,7 +62,7 @@ class PaasPricingCalculator extends PricingCalculator {
     minPrice
   }
 
-  override def calculateReservedStorageCost(platformDf: DataFrame, pricingDf: DataFrame): Double = ???
+  override def calculateReservedStorageCost(platformDf: DataFrame, pricingDf: DataFrame): Double = 0.18
 
   override def calculateDevTestReservedComputeCost(platformDf: DataFrame, pricingDf: DataFrame, reservationTerm: String): Double = ???
 
