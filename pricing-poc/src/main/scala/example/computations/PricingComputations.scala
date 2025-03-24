@@ -53,9 +53,9 @@ object PricingComputations {
     // Compute cost
     val computeCost = strategy.computeCost(platformDf, computePricingDf, reservationTerm)
     val storageCost = strategy.storageCost(platformDf, storagePricingDf)
-    val extraCharge = 0.0
+    val iopsCost = 0.0
 
-    (computeCost, storageCost, extraCharge)
+    (computeCost, storageCost, iopsCost)
   }
 
 
