@@ -6,6 +6,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import example.reader.JsonReader
 import example.constants.PlatformType
 import java.nio.file.Paths
+import example.calculator.PaasPricingCalculator
 
 object PricingComputations {
 
@@ -61,7 +62,9 @@ object PricingComputations {
     val pricingDataFrames = loadPricingDataFrames(PlatformType.AzureSqlDatabase)
     val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
     val storageDataFrame = pricingDataFrames.get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
-    calculateRIComputePricing(df, computeDataFrame, "1 Year")
+    val pricingCalculator = new PaasPricingCalculator
+    val computeReservedCost = pricingCalculator.calculateReservedComputeCost(df, computeDataFrame, "1 Year")
+    println(s"Compute 1 year reserved cost $computeReservedCost")
     structurePricingData(df, pricingData)
   }
 

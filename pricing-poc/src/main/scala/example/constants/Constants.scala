@@ -91,10 +91,10 @@ object PricingType {
 object AzureSqlPaaSServiceTier extends Enumeration {
   type AzureSqlPaaSServiceTier = Value
 
-  val GeneralPurpose: Value = Value("GeneralPurpose")
-  val BusinessCritical: Value = Value("BusinessCritical")
+  val GeneralPurpose: Value = Value("General Purpose")
+  val BusinessCritical: Value = Value("Business Critical")
   val HyperScale: Value = Value("Hyperscale")
-  val NextGenGeneralPurpose: Value = Value("NextGenGeneralPurpose")
+  val NextGenGeneralPurpose: Value = Value("Next-Gen General Purpose")
 }
 
 object ComputeTier extends Enumeration {
@@ -110,5 +110,14 @@ object AzureSqlPaaSHardwareType extends Enumeration {
   val Gen5: Value = Value("Gen5")
   val PremiumSeries: Value = Value("Premium Series")
   val PremiumSeriesMemoryOptimized: Value = Value("Premium Series - Memory Optimized")
+}
+
+object RecommendationConstants{
+  val GeneralPurpose = "General Purpose"
+  val BusinessCritical = "Business Critical"
+  val Hyperscale = "Hyperscale"
+  val Gen5 = "Gen5"
+  val PremiumSeries = "Premium Series Compute"
+  val PremiumSeriesMemoryOptimized = "Premium Series Memory Optimized Compute"
 }
 
