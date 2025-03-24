@@ -95,7 +95,7 @@ class PaasPricingCalculator extends PricingCalculator {
       .collect()
       .headOption
       .map(_.get(0))
-      
+
     val storageMaxSizeInMb = storageMaxSizeInMbOpt match {
       case Some(value: Long)   => value // Exact whole number
       case Some(value: Int)    => value.toLong // Integer, safe conversion
@@ -113,6 +113,7 @@ class PaasPricingCalculator extends PricingCalculator {
     val retailPrice = if (!filteredDf.isEmpty) {
         val minPrice = filteredDf.orderBy("retailPrice").select("retailPrice").first().getDouble(0)
         val storageMaxSizeInGb = storageMaxSizeInMb / 1024
+        
         if(targetPlatform == Some(PlatformType.AzureSqlManagedInstance)){
           storageCost = minPrice * math.max(storageMaxSizeInGb - 32, 0)
         }
@@ -120,6 +121,7 @@ class PaasPricingCalculator extends PricingCalculator {
           storageCost = minPrice * (storageMaxSizeInGb * 1.3)
         }
     } 
+    storageCost = BigDecimal(storageCost).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
     storageCost
   }
 

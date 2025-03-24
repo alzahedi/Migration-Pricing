@@ -76,7 +76,7 @@ object PricingComputations {
     implicit val spark: SparkSession = df.sparkSession
     val pricingDataFrames = loadPricingDataFrames(PlatformType.AzureSqlDatabase)
     val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
-    val storageDataFrame = pricingDataFrames.get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
+    val storageDataFrame = loadPricingDataFrames(PlatformType.AzureSqlManagedInstance).get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
     val pricingCalculator = new PaasPricingCalculator
     
     val pricingData: Seq[(String, (Double, Double, Double))] = Seq(
