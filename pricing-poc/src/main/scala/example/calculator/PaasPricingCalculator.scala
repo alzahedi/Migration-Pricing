@@ -90,13 +90,18 @@ class PaasPricingCalculator extends PricingCalculator {
     val targetPlatform = PlatformType.fromString(normalizedTargetPlatform)
 
     flattenedDf.printSchema()
-    val storageMaxSizeInMbOpt: Option[Long] = flattenedDf
+    val storageMaxSizeInMbOpt: Option[Any] = flattenedDf
       .select(col("TargetSku.StorageMaxSizeInMb"))
       .collect()
       .headOption
-      .map(_.getDouble(0).toLong)
-
-    val storageMaxSizeInMb = storageMaxSizeInMbOpt.getOrElse(0L)
+      .map(_.get(0))
+      
+    val storageMaxSizeInMb = storageMaxSizeInMbOpt match {
+      case Some(value: Long)   => value // Exact whole number
+      case Some(value: Int)    => value.toLong // Integer, safe conversion
+      case Some(value: Double) => Math.round(value) // Round off to nearest whole number
+      case _                   => 0L
+    }
 
     val filteredDf = pricingDf
       .filter(
