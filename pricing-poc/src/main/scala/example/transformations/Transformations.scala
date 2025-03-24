@@ -26,7 +26,7 @@ object Transformations {
 
   private def transformSku(platform: PlatformType)(df: DataFrame): DataFrame = {
     df.withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
-      .withColumn("platform", lit(PlatformType.toString(platform)))
+      .withColumn("platform", lit(platform.toString.head.toLower + platform.toString.tail))
       .transform(filterSkuRecommendationResults())
       .transform(transformTargetSku(platform))
       .transform(transformMonthlyCost)

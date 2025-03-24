@@ -12,16 +12,16 @@ object PlatformType {
   def values: List[PlatformType] = List(AzureSqlDatabase, AzureSqlManagedInstance, AzureSqlVirtualMachine)
 
   def fromString(value: String): Option[PlatformType] = value match {
-    case "azureSqlDatabase"        => Some(AzureSqlDatabase)
-    case "azureSqlManagedInstance" => Some(AzureSqlManagedInstance)
-    case "azureSqlVirtualMachine"  => Some(AzureSqlVirtualMachine)
+    case "AzureSqlDatabase"        => Some(AzureSqlDatabase)
+    case "AzureSqlManagedInstance" => Some(AzureSqlManagedInstance)
+    case "AzureSqlVirtualMachine"  => Some(AzureSqlVirtualMachine)
     case _                         => None
   }
 
   def toString(platformType: PlatformType): String = platformType match {
-    case AzureSqlDatabase        => "azureSqlDatabase"
-    case AzureSqlManagedInstance => "azureSqlManagedInstance"
-    case AzureSqlVirtualMachine  => "azureSqlVirtualMachine"
+    case AzureSqlDatabase        => "AzureSqlDatabase"
+    case AzureSqlManagedInstance => "AzureSqlManagedInstance"
+    case AzureSqlVirtualMachine  => "AzureSqlVirtualMachine"
   }
 }
 

@@ -4,6 +4,7 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
 import example.constants.{AzureSqlPaaSServiceTier, RecommendationConstants, AzureSqlPaaSHardwareType, PricingType}
+import example.constants.PlatformType
 
 class PaasPricingCalculator extends PricingCalculator {
 
@@ -14,9 +15,6 @@ class PaasPricingCalculator extends PricingCalculator {
       .select(
         col("SkuRecommendationForServers.ServerName"),
         col("SkuRecommendationResults.TargetSku"))
-    
-    flattenedDf.printSchema()
-    flattenedDf.show(false)
 
     val sqlServiceTierOpt: Option[String] = flattenedDf
       .select(col("TargetSku.Category.SqlServiceTier"))
@@ -62,7 +60,63 @@ class PaasPricingCalculator extends PricingCalculator {
     minPrice
   }
 
-  override def calculateReservedStorageCost(platformDf: DataFrame, pricingDf: DataFrame): Double = 0.18
+  override def calculateReservedStorageCost(platformDf: DataFrame, pricingDf: DataFrame): Double = {
+    val flattenedDf = platformDf
+      .withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
+      .withColumn("SkuRecommendationResults", explode(col("SkuRecommendationForServers.SkuRecommendationResults")))
+      .select(
+        col("SkuRecommendationForServers.ServerName"),
+        col("SkuRecommendationResults.TargetSku"))
+
+    val sqlServiceTierOpt: Option[String] = flattenedDf
+      .select(col("TargetSku.Category.SqlServiceTier"))
+      .collect()
+      .headOption
+      .map(_.getString(0))
+
+    val normalizedSqlServiceTierOpt = sqlServiceTierOpt.map(_.trim)
+    
+    val sqlServiceTier: Option[AzureSqlPaaSServiceTier.Value] =
+      AzureSqlPaaSServiceTier.values.find(_.toString.trim == normalizedSqlServiceTierOpt.getOrElse(""))
+
+    val targetPlatformOpt: Option[String] = flattenedDf
+      .select(col("TargetSku.Category.SqlTargetPlatform"))
+      .collect()
+      .headOption
+      .map(_.getString(0))
+
+    val normalizedTargetPlatform = targetPlatformOpt.map(_.trim).getOrElse("")
+    
+    val targetPlatform = PlatformType.fromString(normalizedTargetPlatform)
+
+    flattenedDf.printSchema()
+    val storageMaxSizeInMbOpt: Option[Long] = flattenedDf
+      .select(col("TargetSku.StorageMaxSizeInMb"))
+      .collect()
+      .headOption
+      .map(_.getDouble(0).toLong)
+
+    val storageMaxSizeInMb = storageMaxSizeInMbOpt.getOrElse(0L)
+
+    val filteredDf = pricingDf
+      .filter(
+        col("skuName") === getSqlPaaSTier(sqlServiceTier) &&
+        col("location") === "US West" &&
+        col("type") === PricingType.Consumption.toString 
+    )
+    var storageCost = -1.0
+    val retailPrice = if (!filteredDf.isEmpty) {
+        val minPrice = filteredDf.orderBy("retailPrice").select("retailPrice").first().getDouble(0)
+        val storageMaxSizeInGb = storageMaxSizeInMb / 1024
+        if(targetPlatform == Some(PlatformType.AzureSqlManagedInstance)){
+          storageCost = minPrice * math.max(storageMaxSizeInGb - 32, 0)
+        }
+        else{
+          storageCost = minPrice * (storageMaxSizeInGb * 1.3)
+        }
+    } 
+    storageCost
+  }
 
   override def calculateDevTestReservedComputeCost(platformDf: DataFrame, pricingDf: DataFrame, reservationTerm: String): Double = ???
 

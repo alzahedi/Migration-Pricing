@@ -58,8 +58,6 @@ object PricingComputations {
     (computeCost, storageCost, iopsCost)
   }
 
-
-
   private def structurePricingData(df: DataFrame, pricingData: Seq[(String, (Double, Double, Double))])(implicit spark: SparkSession): DataFrame = {
     import spark.implicits._
 
