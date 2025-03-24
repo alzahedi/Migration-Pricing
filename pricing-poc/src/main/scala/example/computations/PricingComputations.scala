@@ -25,13 +25,6 @@ object PricingComputations {
     )
   )
 
-  private val pricingData: Seq[(String, (Double, Double, Double))] = Seq(
-    ("With1YearRIAndDevTest", (245.13, 0.18, 0.0)),
-    ("With3YearRIAndDevTest", (24.13, 0.18, 0.0)),
-    ("With1YearRIAndProd", (242.13, 0.18, 0.0)),
-    ("With3YearRIAndProd", (222.13, 0.18, 0.0))
-  )
-
   private val pricingDataForSqlVM: Seq[(String, (Double, Double, Double))] = Seq(
     ("With1YearASPAndDevTest", (245.13, 0.18, 0.0)),
     ("With3YearASPAndDevTest", (24.13, 0.18, 0.0)),
@@ -114,8 +107,12 @@ object PricingComputations {
     val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
     val storageDataFrame = pricingDataFrames.get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
     val pricingCalculator = new PaasPricingCalculator
-    val computeReservedCost = pricingCalculator.calculateReservedComputeCost(df, computeDataFrame, "1 Year")
-    println(s"Compute 1 years reserved cost for SQL MI $computeReservedCost")
+    val pricingData: Seq[(String, (Double, Double, Double))] = Seq(
+      ("With1YearRIAndDevTest", (245.13, 0.18, 0.0)),
+      ("With3YearRIAndDevTest", (24.13, 0.18, 0.0)),
+      ("With1YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "1 Year", "Prod", pricingCalculator)),
+      ("With3YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "3 Years", "Prod", pricingCalculator))
+    )
     structurePricingData(df, pricingData)
   }
 
