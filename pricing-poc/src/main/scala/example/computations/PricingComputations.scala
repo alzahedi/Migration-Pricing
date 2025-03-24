@@ -7,6 +7,7 @@ import example.reader.JsonReader
 import example.constants.PlatformType
 import java.nio.file.Paths
 import example.calculator.{PaasPricingCalculator,PricingCalculator}
+import example.strategy.PricingStrategyFactory
 
 object PricingComputations {
 
@@ -42,31 +43,21 @@ object PricingComputations {
       storagePricingDf: DataFrame,
       reservationTerm: String,
       environment: String,
-      calculator: PricingCalculator
+      pricingModel: String,
+      pricingType: String
   ): (Double, Double, Double) = {
 
-    val computeCostFn: (DataFrame, DataFrame, String) => Double = (reservationTerm, environment) match {
-      case ("1 Year", "DevTest") => calculator.calculateDevTestReservedComputeCost
-      case ("3 Years", "DevTest") => calculator.calculateDevTestReservedComputeCost
-      case ("1 Year", "Prod")    => calculator.calculateReservedComputeCost
-      case ("3 Years", "Prod")    => calculator.calculateReservedComputeCost
-      case _                    => (_, _, _) => -1.0 // Default case
-    }
+    // Select the right strategy dynamically
+    val strategy = PricingStrategyFactory.getStrategy(pricingModel, pricingType)
 
-    val storageCostFn: (DataFrame, DataFrame) => Double = (reservationTerm, environment) match {
-      case ("1 Year", "DevTest") => calculator.calculateDevTestReservedStorageCost
-      case ("3 Years", "DevTest") => calculator.calculateDevTestReservedStorageCost
-      case ("1 Year", "Prod")    => calculator.calculateReservedStorageCost
-      case ("3 Years", "Prod")    => calculator.calculateReservedStorageCost
-      case _                    => (_, _) => -1.0
-    }
+    // Compute cost
+    val computeCost = strategy.computeCost(platformDf, computePricingDf, reservationTerm)
+    val storageCost = strategy.storageCost(platformDf, storagePricingDf)
+    val extraCharge = 0.0
 
-    val computeCost = computeCostFn(platformDf, computePricingDf, reservationTerm)
-    val storageCost = storageCostFn(platformDf, storagePricingDf)
-    val iopsCost = 0.0
-
-    (computeCost, storageCost, iopsCost)
+    (computeCost, storageCost, extraCharge)
   }
+
 
 
   private def structurePricingData(df: DataFrame, pricingData: Seq[(String, (Double, Double, Double))])(implicit spark: SparkSession): DataFrame = {
@@ -93,8 +84,8 @@ object PricingComputations {
     val pricingData: Seq[(String, (Double, Double, Double))] = Seq(
       ("With1YearRIAndDevTest", (245.13, 0.18, 0.0)),
       ("With3YearRIAndDevTest", (24.13, 0.18, 0.0)),
-      ("With1YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "1 Year", "Prod", pricingCalculator)),
-      ("With3YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "3 Years", "Prod", pricingCalculator))
+      ("With1YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "1 Year", "Prod", "PaaS", "RI")),
+      ("With3YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "3 Years", "Prod", "PaaS", "RI"))
     )
 
     structurePricingData(df, pricingData)
@@ -110,8 +101,8 @@ object PricingComputations {
     val pricingData: Seq[(String, (Double, Double, Double))] = Seq(
       ("With1YearRIAndDevTest", (245.13, 0.18, 0.0)),
       ("With3YearRIAndDevTest", (24.13, 0.18, 0.0)),
-      ("With1YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "1 Year", "Prod", pricingCalculator)),
-      ("With3YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "3 Years", "Prod", pricingCalculator))
+      ("With1YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "1 Year", "Prod", "PaaS", "RI")),
+      ("With3YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "3 Years", "Prod", "PaaS", "RI"))
     )
     structurePricingData(df, pricingData)
   }
