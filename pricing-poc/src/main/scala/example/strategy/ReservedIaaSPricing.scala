@@ -15,10 +15,6 @@ class ReservedIaaSPricing extends PricingStrategy {
         col("SkuRecommendationForServers.ServerName"),
         col("SkuRecommendationResults.TargetSku"))
 
-    println("Vm Schema")
-    flattenedDf.printSchema()
-    flattenedDf.show(false)
-
     val armSkuNameOpt: Option[String] = flattenedDf
       .select(col("TargetSku.VirtualMachineSize.AzureSkuName"))
       .collect()

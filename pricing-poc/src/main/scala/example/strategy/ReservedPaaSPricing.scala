@@ -15,6 +15,58 @@ class ReservedPaaSPricing extends PricingStrategy {
         col("SkuRecommendationForServers.ServerName"),
         col("SkuRecommendationResults.TargetSku"))
 
+    // Trying other way
+    val sqlTierExpr = expr(
+      "CASE " +
+        "WHEN originalSqlServiceTier = 'General Purpose' OR originalSqlServiceTier = 'Next-Gen General Purpose' THEN 'General Purpose' " +
+        "WHEN originalSqlServiceTier = 'Business Critical' THEN 'Business Critical' " +
+        "WHEN originalSqlServiceTier = 'Hyperscale' THEN 'Hyperscale' " +
+        "ELSE '' END"
+    ).alias("sqlServiceTier")
+
+    val sqlHardwareExpr = expr(
+      "CASE " +
+        "WHEN originalSqlHardwareType = 'Gen5' THEN 'Gen5' " +
+        "WHEN originalSqlHardwareType = 'Premium Series' THEN 'Premium Series Compute' " +
+        "WHEN originalSqlHardwareType = 'Premium Series - Memory Optimized' THEN 'Premium Series Memory Optimized Compute' " +
+        "ELSE '' END"
+    ).alias("sqlHardwareType")
+
+    val targetSkuExpandedDF = flattenedDf
+      .select(col("ServerName"), col("TargetSku.Category.SqlServiceTier").alias("originalSqlServiceTier"), col("TargetSku.Category.HardwareType").alias("originalSqlHardwareType"))
+      .withColumn("sqlServiceTier", sqlTierExpr)
+      .withColumn("sqlHardwareType", sqlHardwareExpr)
+
+    targetSkuExpandedDF.printSchema()
+    targetSkuExpandedDF.show(false)
+
+    val filteredPricingDF = pricingDf.filter(
+       col("skuName") === "vCore" &&
+       col("location") === "US West" &&
+       col("type") === PricingType.Reservation.toString &&
+       col("reservationTerm") === reservationTerm &&
+       col("UnitOfMeasure") === "1 Hour"
+    )
+    val targetAlias = "target"
+    val pricingAlias = "pricing"
+
+    val joinedDF = targetSkuExpandedDF.as(targetAlias)
+      .join(
+        filteredPricingDF.as(pricingAlias),
+        col(s"$pricingAlias.productName").contains(col(s"$targetAlias.sqlServiceTier")) &&
+        col(s"$pricingAlias.productName").contains(col(s"$targetAlias.sqlHardwareType")),
+        "inner"
+    )
+    
+    val minRetailPrice = joinedDF
+      .orderBy(col(s"$pricingAlias.retailPrice").asc)
+      .limit(1)
+      .select("retailPrice").alias("computeCost")
+      .toDF()
+    
+    val computeCostDF = minRetailPrice.withColumn("computeCost", col("retailPrice")).drop("retailPrice")
+    computeCostDF.show()
+
     val sqlServiceTierOpt: Option[String] = flattenedDf
       .select(col("TargetSku.Category.SqlServiceTier"))
       .collect()
