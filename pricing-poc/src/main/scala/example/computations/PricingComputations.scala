@@ -6,7 +6,6 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import example.reader.JsonReader
 import example.constants.PlatformType
 import java.nio.file.Paths
-import example.calculator.{PaasPricingCalculator,PricingCalculator}
 import example.strategy.PricingStrategyFactory
 
 object PricingComputations {
@@ -77,7 +76,6 @@ object PricingComputations {
     val pricingDataFrames = loadPricingDataFrames(PlatformType.AzureSqlDatabase)
     val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
     val storageDataFrame = loadPricingDataFrames(PlatformType.AzureSqlManagedInstance).get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
-    val pricingCalculator = new PaasPricingCalculator
     
     val pricingData: Seq[(String, (Double, Double, Double))] = Seq(
       ("With1YearRIAndDevTest", (245.13, 0.18, 0.0)),
@@ -95,7 +93,7 @@ object PricingComputations {
     val pricingDataFrames = loadPricingDataFrames(PlatformType.AzureSqlManagedInstance)
     val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
     val storageDataFrame = pricingDataFrames.get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
-    val pricingCalculator = new PaasPricingCalculator
+    
     val pricingData: Seq[(String, (Double, Double, Double))] = Seq(
       ("With1YearRIAndDevTest", (245.13, 0.18, 0.0)),
       ("With3YearRIAndDevTest", (24.13, 0.18, 0.0)),
@@ -107,7 +105,22 @@ object PricingComputations {
 
   def computePricingForSqlVM(df: DataFrame): DataFrame = {
     implicit val spark: SparkSession = df.sparkSession
-    structurePricingData(df, pricingDataForSqlVM)
+    val pricingDataFrames = loadPricingDataFrames(PlatformType.AzureSqlVirtualMachine)
+    val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
+    val storageDataFrame = pricingDataFrames.get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
+
+    val pricingData: Seq[(String, (Double, Double, Double))] = Seq(
+      ("With1YearASPAndDevTest", (245.13, 0.18, 0.0)),
+      ("With3YearASPAndDevTest", (24.13, 0.18, 0.0)),
+      ("With1YearASPAndProd", (242.13, 0.18, 0.0)),
+      ("With3YearASPAndProd", (222.13, 0.18, 0.0)),
+      ("With1YearRIAndDevTest", (245.13, 0.18, 0.0)),
+      ("With3YearRIAndDevTest", (24.13, 0.18, 0.0)),
+      ("With1YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "1 Year", "Prod", "IaaS", "RI")),
+      ("With3YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "3 Years", "Prod", "IaaS", "RI"))
+    )
+
+    structurePricingData(df, pricingData)
   }
 
   def loadPricingDataFrames(platformType: PlatformType)(implicit spark: SparkSession): Map[String, DataFrame] = {
