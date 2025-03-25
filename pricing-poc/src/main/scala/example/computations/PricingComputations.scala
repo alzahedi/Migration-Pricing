@@ -7,6 +7,7 @@ import example.reader.JsonReader
 import example.constants.PlatformType
 import java.nio.file.Paths
 import example.strategy.PricingStrategyFactory
+import org.apache.hadoop.shaded.org.eclipse.jetty.websocket.common.frames
 
 object PricingComputations {
 
@@ -44,31 +45,40 @@ object PricingComputations {
       environment: String,
       pricingModel: String,
       pricingType: String
-  ): (Double, Double, Double) = {
+  )(implicit spark: SparkSession): DataFrame = {
 
     // Select the right strategy dynamically
     val strategy = PricingStrategyFactory.getStrategy(pricingModel, pricingType)
 
     // Compute cost
-    val computeCost = strategy.computeCost(platformDf, computePricingDf, reservationTerm)
-    val storageCost = strategy.storageCost(platformDf, storagePricingDf)
+    val computeCostDF = strategy.computeCost(platformDf, computePricingDf, reservationTerm)
+    val storageCostDF = strategy.storageCost(platformDf, storagePricingDf)
+    val computeCost = computeCostDF.select("computeCost").first().getDouble(0)
+    val storageCost = storageCostDF.select("storageCost").first().getDouble(0)
     val iopsCost = 0.0
 
-    (computeCost, storageCost, iopsCost)
+    // Create a new DataFrame with all cost components
+    val finalDF = spark.createDataFrame(Seq((computeCost, storageCost, iopsCost)))
+      .toDF("computeCost", "storageCost", "iopsCost")
+
+    finalDF.show(false)
+    finalDF
   }
 
-  private def structurePricingData(df: DataFrame, pricingData: Seq[(String, (Double, Double, Double))])(implicit spark: SparkSession): DataFrame = {
-    import spark.implicits._
+  private def structurePricingData(pricingDFs: Seq[DataFrame]): DataFrame = {
+    val resultDF = pricingDFs.reduce(_.unionByName(_))
+    .select(
+      col("keyName"),
+      struct(
+        col("computeCost"),
+        col("storageCost"),
+        col("iopsCost")
+      ).alias("keyValue")
+    )
 
-    val data = pricingData.toDF("keyName", "keyValue")
-
-    data.withColumn(
-      "keyValue", struct(
-        col("keyValue._1").as("computeCost"),
-        col("keyValue._2").as("storageCost"),
-        col("keyValue._3").as("iopsCost")
-      )
-    ).select("keyName", "keyValue")
+    // resultDF.printSchema()
+    // resultDF.show(false)
+    resultDF
   }
 
   def computePricingForSqlDB(df: DataFrame): DataFrame = {
@@ -77,14 +87,18 @@ object PricingComputations {
     val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
     val storageDataFrame = loadPricingDataFrames(PlatformType.AzureSqlManagedInstance).get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
     
-    val pricingData: Seq[(String, (Double, Double, Double))] = Seq(
-      ("With1YearRIAndDevTest", (245.13, 0.18, 0.0)),
-      ("With3YearRIAndDevTest", (24.13, 0.18, 0.0)),
-      ("With1YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "1 Year", "Prod", "PaaS", "RI")),
-      ("With3YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "3 Years", "Prod", "PaaS", "RI"))
+    val pricingConfigs = Seq(
+      ("With1YearRIAndProd", "1 Year", "RI", "Prod"),
+      ("With3YearRIAndProd", "3 Years", "RI", "Prod")
     )
 
-    structurePricingData(df, pricingData)
+    // Generate pricing DataFrames dynamically
+    val pricingDFs = pricingConfigs.map { case (keyName, term, pricingType, environment) =>
+      generatePricingValues(df, computeDataFrame, storageDataFrame, term, environment, "PaaS", pricingType)
+        .withColumn("keyName", lit(keyName))
+    }
+
+    structurePricingData(pricingDFs)
   }
 
 
@@ -94,13 +108,18 @@ object PricingComputations {
     val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
     val storageDataFrame = pricingDataFrames.get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
     
-    val pricingData: Seq[(String, (Double, Double, Double))] = Seq(
-      ("With1YearRIAndDevTest", (245.13, 0.18, 0.0)),
-      ("With3YearRIAndDevTest", (24.13, 0.18, 0.0)),
-      ("With1YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "1 Year", "Prod", "PaaS", "RI")),
-      ("With3YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "3 Years", "Prod", "PaaS", "RI"))
+    val pricingConfigs = Seq(
+      ("With1YearRIAndProd", "1 Year", "RI", "Prod"),
+      ("With3YearRIAndProd", "3 Years", "RI", "Prod")
     )
-    structurePricingData(df, pricingData)
+
+    // Generate pricing DataFrames dynamically
+    val pricingDFs = pricingConfigs.map { case (keyName, term, pricingType, environment) =>
+      generatePricingValues(df, computeDataFrame, storageDataFrame, term, environment, "PaaS", pricingType)
+        .withColumn("keyName", lit(keyName))
+    }
+
+    structurePricingData(pricingDFs)
   }
 
   def computePricingForSqlVM(df: DataFrame): DataFrame = {
@@ -109,18 +128,31 @@ object PricingComputations {
     val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
     val storageDataFrame = pricingDataFrames.get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
 
-    val pricingData: Seq[(String, (Double, Double, Double))] = Seq(
-      ("With1YearASPAndDevTest", (245.13, 0.18, 0.0)),
-      ("With3YearASPAndDevTest", (24.13, 0.18, 0.0)),
-      ("With1YearASPAndProd", (242.13, 0.18, 0.0)),
-      ("With3YearASPAndProd", (222.13, 0.18, 0.0)),
-      ("With1YearRIAndDevTest", (245.13, 0.18, 0.0)),
-      ("With3YearRIAndDevTest", (24.13, 0.18, 0.0)),
-      ("With1YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "1 Year", "Prod", "IaaS", "RI")),
-      ("With3YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "3 Years", "Prod", "IaaS", "RI"))
+    val pricingConfigs = Seq(
+      ("With1YearRIAndProd", "1 Year", "RI", "Prod"),
+      ("With3YearRIAndProd", "3 Years", "RI", "Prod")
     )
 
-    structurePricingData(df, pricingData)
+    // Generate pricing DataFrames dynamically
+    val pricingDFs = pricingConfigs.map { case (keyName, term, pricingType, environment) =>
+      generatePricingValues(df, computeDataFrame, storageDataFrame, term, environment, "IaaS", pricingType)
+        .withColumn("keyName", lit(keyName))
+    }
+
+    structurePricingData(pricingDFs)
+
+    // val pricingData: Seq[(String, (Double, Double, Double))] = Seq(
+    //   ("With1YearASPAndDevTest", (245.13, 0.18, 0.0)),
+    //   ("With3YearASPAndDevTest", (24.13, 0.18, 0.0)),
+    //   ("With1YearASPAndProd", (242.13, 0.18, 0.0)),
+    //   ("With3YearASPAndProd", (222.13, 0.18, 0.0)),
+    //   ("With1YearRIAndDevTest", (245.13, 0.18, 0.0)),
+    //   ("With3YearRIAndDevTest", (24.13, 0.18, 0.0)),
+    //   ("With1YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "1 Year", "Prod", "IaaS", "RI")),
+    //   ("With3YearRIAndProd", generatePricingValues(df, computeDataFrame, storageDataFrame, "3 Years", "Prod", "IaaS", "RI"))
+    // )
+
+    // structurePricingData(df, pricingData)
   }
 
   def loadPricingDataFrames(platformType: PlatformType)(implicit spark: SparkSession): Map[String, DataFrame] = {

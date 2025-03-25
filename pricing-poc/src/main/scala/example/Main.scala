@@ -45,13 +45,16 @@ object Main extends App {
 
     // Do pricing computations (For now just add in hardcoded data)
     val dbPricingData = PricingComputations.computePricingForSqlDB(dbDf)
-    // val dbData = Transformations.mergePricingIntoRecommendation(dbTransformedDf, dbPricingData)
+    val dbData = Transformations.mergePricingIntoRecommendation(dbTransformedDf, dbPricingData)
+    
 
-    // val miPricingData = PricingComputations.computePricingForSqlMI(miDf)
-    // val miData = Transformations.mergePricingIntoRecommendation(miTransformedDf, miPricingData)
+    val miPricingData = PricingComputations.computePricingForSqlMI(miDf)
+    val miData = Transformations.mergePricingIntoRecommendation(miTransformedDf, miPricingData)
 
-    // val vmPricingData = PricingComputations.computePricingForSqlVM(vmDf)
-    // val vmData = Transformations.mergePricingIntoRecommendation(vmTransformedDf, vmPricingData)
+    val vmPricingData = PricingComputations.computePricingForSqlVM(vmDf)
+    val vmData = Transformations.mergePricingIntoRecommendation(vmTransformedDf, vmPricingData)
+
+    //vmData.show(false)
 
 
     // Print results
@@ -61,22 +64,22 @@ object Main extends App {
     // }
 
     // Aggregate
-    // val jsonResultDf = Transformations.aggregateSkuRecommendations(dbData, miData, vmData)
-    // jsonResultDf.printSchema()
-    // jsonResultDf.show(false)
+    val jsonResultDf = Transformations.aggregateSkuRecommendations(dbData, miData, vmData)
+    jsonResultDf.printSchema()
+    jsonResultDf.show(false)
 
-    // val outputPath = Paths
-    //   .get(
-    //     System.getProperty("user.dir"),
-    //     "src",
-    //     "main",
-    //     "resources",
-    //     "output",
-    //     "output.json"
-    //   )
-    //   .toString
+    val outputPath = Paths
+      .get(
+        System.getProperty("user.dir"),
+        "src",
+        "main",
+        "resources",
+        "output",
+        "output.json"
+      )
+      .toString
 
-    // JsonWriter.writeToJsonFile(jsonResultDf, outputPath)    
+    JsonWriter.writeToJsonFile(jsonResultDf, outputPath)    
 
   } finally {
     spark.stop()
