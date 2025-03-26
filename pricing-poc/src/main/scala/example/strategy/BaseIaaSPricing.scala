@@ -4,7 +4,6 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import example.constants.{PricingType, RecommendationConstants, DiskTypeToTierMap}
-import scala.jdk.CollectionConverters._
 
 abstract class BaseIaaSPricing extends PricingStrategy {
 
@@ -188,10 +187,6 @@ abstract class BaseIaaSPricing extends PricingStrategy {
 
       //finalDF.show()
       finalDF
-    // implicit val spark: SparkSession = platformDf.sparkSession
-    // val schema = StructType(Seq(StructField("storageCost", DoubleType, false)))
-    // val data = Seq(Row(0.18)).asJava
-    // spark.createDataFrame(data, schema)
   }
 
   def getPremiumSSDV2DiskPrices(pricingDF: DataFrame): DataFrame = {
