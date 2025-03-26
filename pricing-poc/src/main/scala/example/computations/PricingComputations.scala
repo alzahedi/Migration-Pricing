@@ -178,7 +178,10 @@ object PricingComputations {
 
     fileMapping.map { case (category, fileName) =>
       val filePath = s"$pricingDataFolderPath/$fileName"
-      category -> JsonReader.readJson(spark, filePath)
+      val rawDF = JsonReader.readJson(spark, filePath)
+      val contentDF = rawDF.selectExpr("explode(Content) as Content").select("Content.*")
+
+      category -> contentDF
     }
   }
 }
