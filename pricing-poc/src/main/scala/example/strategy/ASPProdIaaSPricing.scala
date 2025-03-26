@@ -1,6 +1,5 @@
 package example.strategy
 
-
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
@@ -9,7 +8,7 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.Row
 import scala.jdk.CollectionConverters._
 
-class ReservedIaaSPricing extends PricingStrategy {
+class ASPProdIaaSPricing extends PricingStrategy {
   override def computeCost(platformDf: DataFrame, pricingDf: DataFrame, reservationTerm: String): DataFrame = {
     val flattenedDf = platformDf
       .withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
@@ -26,8 +25,8 @@ class ReservedIaaSPricing extends PricingStrategy {
         !col("SkuName").contains("Low Priority") &&
         col("unitOfMeasure") === "1 Hour" &&
         col("location") === "US West" &&
-        col("type") === PricingType.Reservation.toString &&
-        col("reservationTerm") === reservationTerm
+        col("type") === PricingType.Consumption.toString &&
+        col("savingsPlan").isNotNull
     )
     val targetAlias = "target"
     val pricingAlias = "pricing"
@@ -39,39 +38,21 @@ class ReservedIaaSPricing extends PricingStrategy {
         "inner"
     )
 
-    val minRetailPrice = joinedDF
-      .orderBy(col(s"$pricingAlias.retailPrice").asc)
+   val explodedDF = joinedDF
+      .withColumn("savingsPlan", explode(col(s"$pricingAlias.savingsPlan")))
+
+    // Filter by reservationTerm and get the minimum retailPrice
+    val minSavingsPlanDF = explodedDF
+      .filter(col("savingsPlan.term") === lit(reservationTerm))
+      .orderBy(col("savingsPlan.retailPrice").asc)
       .limit(1)
-      .select("retailPrice").alias("computeCost")
-      .toDF()
+      .select(col("savingsPlan.retailPrice").alias("minRetailPrice"))
     
-    val computeCostDF = minRetailPrice.withColumn("computeCost", col("retailPrice")).drop("retailPrice")
+    val computeCostDF = minSavingsPlanDF.withColumn("computeCost", col("minRetailPrice")).drop("minRetailPrice")
     computeCostDF.show()
 
     computeCostDF
-
-    // val armSkuNameOpt: Option[String] = flattenedDf
-    //   .select(col("TargetSku.VirtualMachineSize.AzureSkuName"))
-    //   .collect()
-    //   .headOption
-    //   .map(_.getString(0))
-
-    // val armSkuName = armSkuNameOpt.map(_.trim).getOrElse("")
-
-    // val filteredDf = pricingDf.filter(
-    //     col("armSkuName") === armSkuName &&
-    //     !col("SkuName").contains("Spot") && 
-    //     !col("SkuName").contains("Low Priority") &&
-    //     col("unitOfMeasure") === "1 Hour" &&
-    //     col("location") === "US West" &&
-    //     col("type") === PricingType.Reservation.toString &&
-    //     col("reservationTerm") === reservationTerm
-    // )
-
-    // val minPrice = filteredDf.orderBy("retailPrice").select("retailPrice").first().getDouble(0)
-    // minPrice
   }
-
   override def storageCost(platformDf: DataFrame, pricingDf: DataFrame): DataFrame = {
     // TODO: Will be replaced with actual logic
     implicit val spark: SparkSession = platformDf.sparkSession
@@ -85,4 +66,3 @@ class ReservedIaaSPricing extends PricingStrategy {
     spark.createDataFrame(data, schema)
   }
 }
-

@@ -48,18 +48,16 @@ object PricingComputations {
   )(implicit spark: SparkSession): DataFrame = {
 
     // Select the right strategy dynamically
-    val strategy = PricingStrategyFactory.getStrategy(pricingModel, pricingType)
+    val strategy = PricingStrategyFactory.getStrategy(pricingModel, pricingType, environment)
 
     // Compute cost
     val computeCostDF = strategy.computeCost(platformDf, computePricingDf, reservationTerm)
     val storageCostDF = strategy.storageCost(platformDf, storagePricingDf)
-    val computeCost = computeCostDF.select("computeCost").first().getDouble(0)
-    val storageCost = storageCostDF.select("storageCost").first().getDouble(0)
-    val iopsCost = 0.0
 
-    // Create a new DataFrame with all cost components
-    val finalDF = spark.createDataFrame(Seq((computeCost, storageCost, iopsCost)))
-      .toDF("computeCost", "storageCost", "iopsCost")
+    val finalDF = computeCostDF
+      .select(coalesce(first("computeCost", ignoreNulls = true), lit(0.0)).alias("computeCost"))
+      .crossJoin(storageCostDF.select(coalesce(first("storageCost", ignoreNulls = true), lit(0.0)).alias("storageCost")))
+      .withColumn("iopsCost", lit(0.0)) 
 
     finalDF.show(false)
     finalDF
@@ -129,6 +127,10 @@ object PricingComputations {
     val storageDataFrame = pricingDataFrames.get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
 
     val pricingConfigs = Seq(
+      ("With1YearASPAndDevTest", "1 Year", "ASP", "DevTest"),
+      ("With3YearASPAndDevTest", "3 Years", "ASP", "DevTest"),
+      ("With1YearASPAndProd", "1 Year", "ASP", "Prod"),
+      ("With3YearASPAndProd", "3 Years", "ASP", "Prod"),
       ("With1YearRIAndProd", "1 Year", "RI", "Prod"),
       ("With3YearRIAndProd", "3 Years", "RI", "Prod")
     )

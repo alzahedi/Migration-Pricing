@@ -70,21 +70,24 @@ object PricingModel {
 object PricingType {
   case object Consumption extends PricingType
   case object Reservation extends PricingType
+  case object DevTestConsumption extends  PricingType
 
 
   def values: List[PricingType] = List(
-    Consumption, Reservation
+    Consumption, Reservation, DevTestConsumption
   )
 
   def fromString(value: String): Option[PricingType] = value match {
-    case "Consumption" => Some(Consumption)
-    case "Reservation" => Some(Reservation)
-    case _             => None
+    case "Consumption"        => Some(Consumption)
+    case "Reservation"        => Some(Reservation)
+    case "DevTestConsumption" => Some(DevTestConsumption)
+    case _                    => None
   }
 
   def toString(pricingType: PricingType): String = pricingType match {
     case Consumption => "Consumption"
     case Reservation => "Reservation"
+    case DevTestConsumption => "DevTestConsumption"
   }
 }
 

@@ -6,7 +6,7 @@ import org.apache.spark.sql.functions._
 import example.constants.{AzureSqlPaaSServiceTier, RecommendationConstants, AzureSqlPaaSHardwareType, PricingType}
 import example.constants.PlatformType
 
-class ReservedPaaSPricing extends PricingStrategy {
+class ReservedProdPaaSPricing extends PricingStrategy {
   override def computeCost(platformDf: DataFrame, pricingDf: DataFrame, reservationTerm: String): DataFrame = {
     val flattenedDf = platformDf
       .withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
