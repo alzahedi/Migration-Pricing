@@ -115,6 +115,31 @@ object AzureSqlPaaSHardwareType extends Enumeration {
   val PremiumSeriesMemoryOptimized: Value = Value("Premium Series - Memory Optimized")
 }
 
+object AzureManagedDiskTier extends Enumeration {
+  type AzureManagedDiskTier = Value
+  val Standard, Premium, Ultra = Value
+}
+
+object AzureManagedDiskType extends Enumeration {
+  type AzureManagedDiskType = Value
+  val StandardHDD   = Value(1 << 0)  // Standard HDD
+  val StandardSSD   = Value(1 << 1)  // Standard SSD
+  val PremiumSSD    = Value(1 << 2)  // Premium SSD
+  val UltraSSD      = Value(1 << 3)  // Ultra SSD
+  val PremiumSSDV2  = Value(1 << 4)  // Premium SSD V2
+}
+
+object DiskTypeToTierMap {
+  val map: Map[String, String] = Map(
+    "StandardHDD"  -> "Standard",
+    "StandardSSD"  -> "Standard",
+    "PremiumSSD"   -> "Premium",
+    "UltraSSD"     -> "Ultra",
+    "PremiumSSDV2" -> "Premium"
+  )
+}
+
+
 object RecommendationConstants{
   val GeneralPurpose = "General Purpose"
   val BusinessCritical = "Business Critical"
@@ -122,5 +147,10 @@ object RecommendationConstants{
   val Gen5 = "Gen5"
   val PremiumSeries = "Premium Series Compute"
   val PremiumSeriesMemoryOptimized = "Premium Series Memory Optimized Compute"
+  val PremiumSSDV2StorageMeterName = "Premium LRS Provisioned Capacity"
+  val PremiumSSDV2ProductName = "Azure Premium SSD v2"
+  val MeterUnitPerHour = "1/Hour"
+  val PremiumSSDV2IOPSMeterName = "Premium LRS Provisioned IOPS"
+  val PremiumSSDV2ThroughputMeterName = "Premium LRS Provisioned Throughput (MBps)"
 }
 

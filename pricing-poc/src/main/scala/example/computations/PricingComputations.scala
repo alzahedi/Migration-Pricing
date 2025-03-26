@@ -59,7 +59,7 @@ object PricingComputations {
       .crossJoin(storageCostDF.select(coalesce(first("storageCost", ignoreNulls = true), lit(0.0)).alias("storageCost")))
       .withColumn("iopsCost", lit(0.0)) 
 
-    finalDF.show(false)
+    // finalDF.show(false)
     finalDF
   }
 
