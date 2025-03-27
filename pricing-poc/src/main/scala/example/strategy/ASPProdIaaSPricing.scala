@@ -11,18 +11,20 @@ import scala.jdk.CollectionConverters._
 class ASPProdIaaSPricing extends BaseIaaSPricing {
   override def pricingType: String = PricingType.Consumption.toString
 
-  override def applyAdditionalFilters(df: DataFrame): DataFrame = df.filter(col("savingsPlan").isNotNull)
+ override def applyAdditionalFilters(df: DataFrame, reservationTerm: String): DataFrame = {
+    val filteredDF = df.filter(col("savingsPlan").isNotNull)
+    val explodedDF = filteredDF.withColumn("savingsPlan", explode(col("savingsPlan")))   
+    explodedDF.filter(col("savingsPlan.term") === lit(reservationTerm))
+ }
 
   override def deriveComputeCost(joinedDF: DataFrame, reservationTerm: String): DataFrame = {
-    val explodedDF = joinedDF.withColumn("savingsPlan", explode(col("savingsPlan")))
-
-    val minSavingsPlanDF = explodedDF
-      .filter(col("savingsPlan.term") === lit(reservationTerm))
+    val minSavingsPlanDF = joinedDF
       .orderBy(col("savingsPlan.retailPrice").asc)
       .limit(1)
       .select(col("savingsPlan.retailPrice").alias("minRetailPrice"))
 
-    minSavingsPlanDF.withColumn("computeCost", col("minRetailPrice")).drop("minRetailPrice")
+    val resultDF = minSavingsPlanDF.withColumn("computeCost", col("minRetailPrice")).drop("minRetailPrice")
+    calculateMonthlyCost(resultDF, "computeCost", 24 * 30.5, _ * _)
   }
 }
 

@@ -11,7 +11,7 @@ abstract class BaseIaaSPricing extends PricingStrategy {
   def pricingType: String
 
   /** Subclasses define additional filters on the pricing DataFrame */
-  def applyAdditionalFilters(df: DataFrame): DataFrame
+  def applyAdditionalFilters(df: DataFrame, reservationTerm: String): DataFrame
 
   /** Subclasses define how to compute cost */
   def deriveComputeCost(joinedDF: DataFrame, reservationTerm: String): DataFrame
@@ -37,7 +37,7 @@ abstract class BaseIaaSPricing extends PricingStrategy {
       )
 
     // Apply additional filters specific to each subclass
-    filteredPricingDF = applyAdditionalFilters(filteredPricingDF)
+    filteredPricingDF = applyAdditionalFilters(filteredPricingDF, reservationTerm)
 
     val joinedDF = targetSkuExpandedDF
       .join(filteredPricingDF, col("armSkuName") === col("azureSkuName"), "inner")

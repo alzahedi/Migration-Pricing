@@ -5,6 +5,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
 import example.constants.{AzureSqlPaaSServiceTier, RecommendationConstants, AzureSqlPaaSHardwareType, PricingType}
 import example.constants.PlatformType
+import example.constants.ReservationTermToNumMap
 
 class ReservedProdPaaSPricing extends PricingStrategy {
   override def computeCost(platformDf: DataFrame, pricingDf: DataFrame, reservationTerm: String): DataFrame = {
@@ -32,9 +33,10 @@ class ReservedProdPaaSPricing extends PricingStrategy {
     ).alias("sqlHardwareType")
 
     val targetSkuExpandedDF = flattenedDf
-      .select(col("ServerName"), col("TargetSku.Category.SqlServiceTier").alias("originalSqlServiceTier"), col("TargetSku.Category.HardwareType").alias("originalSqlHardwareType"))
+      .select(col("ServerName"), col("TargetSku.ComputeSize").alias("computeSize"), col("TargetSku.Category.SqlServiceTier").alias("originalSqlServiceTier"), col("TargetSku.Category.HardwareType").alias("originalSqlHardwareType"))
       .withColumn("sqlServiceTier", sqlTierExpr)
       .withColumn("sqlHardwareType", sqlHardwareExpr)
+
 
     val filteredPricingDF = pricingDf.filter(
        col("skuName") === "vCore" &&
@@ -54,16 +56,17 @@ class ReservedProdPaaSPricing extends PricingStrategy {
         "inner"
     )
     
-    val minRetailPrice = joinedDF
+    val minRetailPriceDF = joinedDF
       .orderBy(col(s"$pricingAlias.retailPrice").asc)
       .limit(1)
-      .select("retailPrice").alias("computeCost")
+      .select((col("retailPrice") * col("computeSize")).alias("computeCost"))
       .toDF()
+  
     
-    val computeCostDF = minRetailPrice.withColumn("computeCost", col("retailPrice")).drop("retailPrice")
-    computeCostDF.show()
-
-    computeCostDF
+    //val computeCostDF = minRetailPrice.withColumn("computeCost", col("retailPrice")).drop("retailPrice")
+    //computeCostDF.show()
+    //computeCostDF
+    calculateMonthlyCost(minRetailPriceDF, "computeCost", 12 * ReservationTermToNumMap.map.getOrElse(reservationTerm, 0).toString.toDouble, _ / _)
   }
 
   override def storageCost(platformDf: DataFrame, pricingDf: DataFrame): DataFrame = {

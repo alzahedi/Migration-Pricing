@@ -139,6 +139,13 @@ object DiskTypeToTierMap {
   )
 }
 
+object ReservationTermToNumMap{
+  val map: Map[String, Int] = Map(
+    "1 Year"  -> 1,
+    "3 Years" -> 3
+  )
+}
+
 
 object RecommendationConstants{
   val GeneralPurpose = "General Purpose"
