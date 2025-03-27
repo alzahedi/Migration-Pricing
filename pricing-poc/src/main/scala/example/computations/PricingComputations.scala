@@ -48,10 +48,10 @@ object PricingComputations {
   )(implicit spark: SparkSession): DataFrame = {
 
     // Select the right strategy dynamically
-    val strategy = PricingStrategyFactory.getStrategy(pricingModel, pricingType, environment)
+    val strategy = PricingStrategyFactory.getStrategy(pricingModel, pricingType, environment, reservationTerm)
 
     // Compute cost
-    val computeCostDF = strategy.computeCost(platformDf, computePricingDf, reservationTerm)
+    val computeCostDF = strategy.computeCost(platformDf, computePricingDf)
     val storageCostDF = strategy.storageCost(platformDf, storagePricingDf)
 
     val finalDF = computeCostDF

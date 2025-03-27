@@ -7,8 +7,8 @@ import example.constants.{AzureSqlPaaSServiceTier, RecommendationConstants, Azur
 import example.constants.PlatformType
 import example.constants.ReservationTermToNumMap
 
-class ReservedProdPaaSPricing extends PricingStrategy {
-  override def computeCost(platformDf: DataFrame, pricingDf: DataFrame, reservationTerm: String): DataFrame = {
+class ReservedProdPaaSPricing(val reservationTerm: String) extends PricingStrategy {
+  override def computeCost(platformDf: DataFrame, pricingDf: DataFrame): DataFrame = {
     val flattenedDf = platformDf
       .withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
       .withColumn("SkuRecommendationResults", explode(col("SkuRecommendationForServers.SkuRecommendationResults")))

@@ -5,10 +5,10 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import example.constants.PricingType
 
-class ASPDevTestIaaSPricing extends BaseIaaSPricing {
+class ASPDevTestIaaSPricing(val reservationTerm: String) extends BaseIaaSPricing {
   override def pricingType: String = PricingType.DevTestConsumption.toString
 
-  override def applyAdditionalFilters(df: DataFrame, reservationTerm: String): DataFrame = {
+  override def applyAdditionalFilters(df: DataFrame): DataFrame = {
     val filteredDF = df.filter(col("savingsPlan").isNotNull)
     val explodedDF = filteredDF.withColumn("savingsPlan", explode(col("savingsPlan")))
 
@@ -16,7 +16,7 @@ class ASPDevTestIaaSPricing extends BaseIaaSPricing {
   }
 
 
-  override def deriveComputeCost(joinedDF: DataFrame, reservationTerm: String): DataFrame = {
+  override def deriveComputeCost(joinedDF: DataFrame): DataFrame = {
     val minSavingsPlanDF = joinedDF
       .orderBy(col("savingsPlan.retailPrice").asc)
       .limit(1)

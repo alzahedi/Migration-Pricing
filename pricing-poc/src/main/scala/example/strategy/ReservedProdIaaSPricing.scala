@@ -10,14 +10,14 @@ import org.apache.spark.sql.Row
 import scala.jdk.CollectionConverters._
 import example.constants.ReservationTermToNumMap
 
-class ReservedProdIaaSPricing extends BaseIaaSPricing {
+class ReservedProdIaaSPricing(val reservationTerm: String) extends BaseIaaSPricing {
   override def pricingType: String = PricingType.Reservation.toString
 
-  override def applyAdditionalFilters(df: DataFrame, reservationTerm: String): DataFrame = {
+  override def applyAdditionalFilters(df: DataFrame): DataFrame = {
     df.filter(col("reservationTerm").isNotNull && col("reservationTerm") === reservationTerm)
   } 
 
-  override def deriveComputeCost(joinedDF: DataFrame, reservationTerm: String): DataFrame = {
+  override def deriveComputeCost(joinedDF: DataFrame): DataFrame = {
     val minRetailPriceDF = joinedDF
       .orderBy(col(s"retailPrice").asc)
       .limit(1)

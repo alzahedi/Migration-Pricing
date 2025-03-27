@@ -11,12 +11,12 @@ abstract class BaseIaaSPricing extends PricingStrategy {
   def pricingType: String
 
   /** Subclasses define additional filters on the pricing DataFrame */
-  def applyAdditionalFilters(df: DataFrame, reservationTerm: String): DataFrame
+  def applyAdditionalFilters(df: DataFrame): DataFrame
 
   /** Subclasses define how to compute cost */
-  def deriveComputeCost(joinedDF: DataFrame, reservationTerm: String): DataFrame
+  def deriveComputeCost(joinedDF: DataFrame): DataFrame
 
-  override def computeCost(platformDf: DataFrame, pricingDf: DataFrame, reservationTerm: String): DataFrame = {
+  override def computeCost(platformDf: DataFrame, pricingDf: DataFrame): DataFrame = {
     val flattenedDf = platformDf
       .withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
       .withColumn("SkuRecommendationResults", explode(col("SkuRecommendationForServers.SkuRecommendationResults")))
@@ -37,13 +37,13 @@ abstract class BaseIaaSPricing extends PricingStrategy {
       )
 
     // Apply additional filters specific to each subclass
-    filteredPricingDF = applyAdditionalFilters(filteredPricingDF, reservationTerm)
+    filteredPricingDF = applyAdditionalFilters(filteredPricingDF)
 
     val joinedDF = targetSkuExpandedDF
       .join(filteredPricingDF, col("armSkuName") === col("azureSkuName"), "inner")
 
     // Call subclass-specific compute logic
-    deriveComputeCost(joinedDF, reservationTerm)
+    deriveComputeCost(joinedDF)
   }
 
   override def storageCost(platformDf: DataFrame, pricingDf: DataFrame): DataFrame = {
