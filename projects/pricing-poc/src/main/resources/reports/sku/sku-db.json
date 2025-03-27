@@ -1,0 +1,208 @@
+{
+    "TimeCreated": "2025-03-12T07:00:34.6040599Z",
+    "SkuRecommendationForServers": [
+        {
+            "ServerName": "ARCBOX-SQL",
+            "TargetPlatform": "AzureSqlDatabase",
+            "Requirements": {
+                "CpuRequirementInCores": 0,
+                "DataStorageRequirementInMB": 21.94,
+                "LogStorageRequirementInMB": 2,
+                "MemoryRequirementInMB": 3.83,
+                "InstanceIOPSDataLogFileRequirement": 0.05,
+                "DataIOPSRequirement": 0.05,
+                "LogIOPSRequirement": 0.01,
+                "IOLatencyRequirementInMs": 0.05,
+                "IOThroughputRequirementInMBps": 0,
+                "DataIOThroughputRequirementInMBps": 0,
+                "LogIOThroughputRequirementInMBps": 0,
+                "InstanceId": "ARCBOX-SQL",
+                "InstanceVersion": "15.0.2104.1",
+                "InstanceEdition": "Developer Edition (64-bit)",
+                "LogicalCpuCount": 1,
+                "ServerCollation": "SQL_Latin1_General_CP1_CI_AS",
+                "HyperthreadRatio": 1,
+                "PhysicalCpuCount": 1,
+                "MaxServerMemoryInUse": 2147483647,
+                "TempDBSizeInMB": 72,
+                "NumOfLogins": 16,
+                "SqlStartTime": "2025-03-11T11:38:05",
+                "AggregatedPhysicalMemoryInUse": 272.48,
+                "AggregatedMemoryUtilizationPercentage": 99.21,
+                "AggregatedSqlInstanceCpuPercent": 0,
+                "DataPointsStartTime": "0001-01-01T08:00:00Z",
+                "DataPointsEndTime": "2025-03-12T07:00:24.0562211Z",
+                "AggregationTargetPercentile": 95,
+                "PerfDataCollectionIntervalInSeconds": 30,
+                "SqlServerHostRequirements": {
+                    "HostNICCount": 1
+                },
+                "IsSqlServerFci": false,
+                "IsSqlServerHostingAvailabilityGroup": false,
+                "DatabaseLevelRequirements": [
+                    {
+                        "DatabaseCollation": "SQL_Latin1_General_CP1_CI_AS",
+                        "CpuRequirementInCores": 0,
+                        "CpuRequirementInPercentageOfTotalInstance": 0,
+                        "MemoryRequirementInMB": 3.83,
+                        "DataIOPSRequirement": 0.05,
+                        "LogIOPSRequirement": 0.01,
+                        "IOLatencyRequirementInMs": 0.05,
+                        "IOThroughputRequirementInMBps": 0,
+                        "DataFileIOThroughputRequirementInMBps": 0,
+                        "LogFileIOThroughputRequirementInMBps": 0,
+                        "LogWriteRateInMBPerSecRequirement": 0,
+                        "DataStorageRequirementInMB": 21.94,
+                        "LogStorageRequirementInMB": 2,
+                        "DatabaseName": "AdventureWorksLT2019",
+                        "AggregatedCachedSizeInMb": 3.83,
+                        "AggregatedCpuPercent": 0,
+                        "ExcludeFromRecommendation": false,
+                        "FileLevelRequirements": [
+                            {
+                                "ParentDatabaseName": "AdventureWorksLT2019",
+                                "FileLogicalName": "AdventureWorksLT2012_Data",
+                                "FileName": "C:\\Program Files\\Microsoft SQL Server\\MSSQL15.MSSQLSERVER\\MSSQL\\DATA\\AdventureWorksLT2012.mdf",
+                                "FileType": "Rows",
+                                "SizeInMB": 21.94,
+                                "ReadLatencyInMs": 0.06,
+                                "WriteLatencyInMs": 0.03,
+                                "AggregatedNumOfReads": 0.82,
+                                "AggregatedNumOfWrites": 0.58,
+                                "AggregatedReadIOInMb": 0.09,
+                                "AggregatedWriteIOInMb": 0,
+                                "CollectionInterval": 30,
+                                "IOPSRequirement": 0.05,
+                                "IOThroughputRequirementInMBps": 0,
+                                "WriteRateRequirementInMBps": 0,
+                                "NumberOfDataPointsAnalyzed": 9144
+                            },
+                            {
+                                "ParentDatabaseName": "AdventureWorksLT2019",
+                                "FileLogicalName": "AdventureWorksLT2012_Log",
+                                "FileName": "C:\\Program Files\\Microsoft SQL Server\\MSSQL15.MSSQLSERVER\\MSSQL\\DATA\\AdventureWorksLT2012_log.ldf",
+                                "FileType": "Log",
+                                "SizeInMB": 2,
+                                "ReadLatencyInMs": 0,
+                                "WriteLatencyInMs": 0.6,
+                                "AggregatedNumOfReads": 0,
+                                "AggregatedNumOfWrites": 0.24,
+                                "AggregatedReadIOInMb": 0,
+                                "AggregatedWriteIOInMb": 0,
+                                "CollectionInterval": 30,
+                                "IOPSRequirement": 0.01,
+                                "IOThroughputRequirementInMBps": 0,
+                                "WriteRateRequirementInMBps": 0,
+                                "NumberOfDataPointsAnalyzed": 9144
+                            }
+                        ],
+                        "NumberOfDataPointsAnalyzed": 1629
+                    }
+                ],
+                "NumberOfDataPointsAnalyzed": 4821
+            },
+            "SkuRecommendationResults": [
+                {
+                    "SqlInstanceName": "ARCBOX-SQL",
+                    "ServerCollation": "SQL_Latin1_General_CP1_CI_AS",
+                    "DatabaseName": "AdventureWorksLT2019",
+                    "DatabaseCollation": "SQL_Latin1_General_CP1_CI_AS",
+                    "TargetSku": {
+                        "StorageMaxSizeInMb": 1024,
+                        "PredictedDataSizeInMb": 21.94,
+                        "PredictedLogSizeInMb": 2,
+                        "MaxStorageIops": 0.06,
+                        "MaxThroughputMBps": 0,
+                        "Category": {
+                            "SqlPurchasingModel": "vCore",
+                            "SqlServiceTier": "General Purpose",
+                            "ComputeTier": "Provisioned",
+                            "HardwareType": "Gen5",
+                            "ZoneRedundancyAvailable": false,
+                            "SqlTargetPlatform": "AzureSqlDatabase"
+                        },
+                        "ComputeSize": 2
+                    },
+                    "MonthlyCost": {
+                        "ComputeCost": 245.13,
+                        "StorageCost": 0.18,
+                        "IopsCost": 0,
+                        "TotalCost": 245.31
+                    },
+                    "Ranking": 0,
+                    "RecommendationReasonings": [
+                        {
+                            "ReasoningType": "PositiveReasoning",
+                            "ReasoningEnum": "MeetsDatabaseCpuScalingFactorRequirement",
+                            "ReasoningString": "Considering the 0% utilization of the 0 cores according to the performance data collected, 2 vCores are recommended. This recommendation also includes other factors, including memory, storage, and IO.",
+                            "ReasoningCategory": "CpuType",
+                            "Parameters": {
+                                "CoreUtilizationPercentage": "0",
+                                "AllocatedCores": "0",
+                                "TargetCoresRecommended": "2"
+                            }
+                        },
+                        {
+                            "ReasoningType": "PositiveReasoning",
+                            "ReasoningEnum": "MeetsDatabaseStorageRequirement",
+                            "ReasoningString": "Data files consumed 0.021 GB, and log files consumed 0.002 GB. Hence, 1024 GB of data storage is recommended.",
+                            "ReasoningCategory": "StorageType",
+                            "Parameters": {
+                                "TotalStorageConsumedByDataFilesInGB": "0.021",
+                                "TotalStorageConsumedByLogFilesInGB": "0.002",
+                                "TotalRecommendedStorageInGB": "1024"
+                            }
+                        },
+                        {
+                            "ReasoningType": "PositiveReasoning",
+                            "ReasoningEnum": "MeetsDatabaseIOThroughputRequirement",
+                            "ReasoningString": "Combined read and write IO throughput requirement is 0.003 MB/second which can be met by this SKU's throughput of 5 MB/second.",
+                            "ReasoningCategory": "ThroughputType",
+                            "Parameters": {
+                                "DatabaseLevelThroughputRequiredInMBPerSec": "0.003",
+                                "DatabaseLevelThroughputAvailableInMBPerSec": "5"
+                            }
+                        },
+                        {
+                            "ReasoningType": "PositiveReasoning",
+                            "ReasoningEnum": "MeetsDatabaseIOPSDataRequirement",
+                            "ReasoningString": "Data and log files require 0.047 IOPS which can be met by this SKU's limit of 640 IOPS.",
+                            "ReasoningCategory": "IOPSType",
+                            "Parameters": {
+                                "DatabaseLevelIOPSRequiredInIOPerSec": "0.047",
+                                "DatabaseLevelIOPSAvailableInIOPerSec": "640"
+                            }
+                        },
+                        {
+                            "ReasoningType": "PositiveReasoning",
+                            "ReasoningEnum": "MeetsProvisionedComputeTierRequirement",
+                            "ReasoningString": "Additionally, a Provisioned compute tier is recommended.",
+                            "ReasoningCategory": "ComputeTier",
+                            "Parameters": {
+                                "ComputeTier": "Provisioned"
+                            }
+                        },
+                        {
+                            "ReasoningType": "PositiveReasoning",
+                            "ReasoningEnum": "MeetsServiceTierRequirement",
+                            "ReasoningString": "GeneralPurpose service tier is recommended.",
+                            "ReasoningCategory": "ServiceTier",
+                            "Parameters": {
+                                "ServiceTier": "GeneralPurpose"
+                            }
+                        }
+                    ],
+                    "PositiveJustifications": [
+                        "According to the performance data collected, we estimate that your database has a compute requirement of 0.00 vCores. Based on other factors, including memory, storage, and IO, this is the smallest compute sizing that will satisfy all of your requirements.",
+                        "This database requires 0.00 GB of memory, which can be satisfied by this SKU's maximum of 10.40 GB.",
+                        "This database requires 0.02 GB of storage for data files. We recommend provisioning at least 1 GB of storage, which is the nearest valid amount that can be provisioned. Storage for this SKU is provisioned in increments of 1 GB, up to 1024 GB.",
+                        "This database requires 0.00 MB/s of combined read/write IO throughput. This is a relatively idle database, so IO latency is not considered.",
+                        "This database requires 0 IOPS for data files, which can be satisfied by this SKU's limit of 640 IOPS.",
+                        "This database requires a 0.05 MB/s log write rate, which can be satisfied by this SKU's max log rate limit of 9 MB/s."
+                    ],
+                    "NegativeJustifications": []
+                }
+            ]
+        }
+    ]
+}
