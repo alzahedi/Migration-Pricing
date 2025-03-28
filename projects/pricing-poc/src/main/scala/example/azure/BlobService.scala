@@ -10,7 +10,7 @@ import com.azure.storage.blob.sas.{
 import com.azure.storage.common.sas.SasProtocol
 
 import java.time.OffsetDateTime
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 object BlobService {
 
@@ -54,7 +54,7 @@ object BlobService {
 
     containerClient
       .listBlobs()
-      .asScala
+      .asScala.toList
       .filter(blob => blob.getName.endsWith(".json")) // Only JSON files
       .map(_.getName)
       .toList

@@ -7,7 +7,6 @@ import org.apache.spark.sql.functions._
 import example.constants.PricingType
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.Row
-import scala.jdk.CollectionConverters._
 import example.constants.ReservationTermToNumMap
 
 class ReservedProdIaaSPricing(val reservationTerm: String) extends BaseIaaSPricing {
