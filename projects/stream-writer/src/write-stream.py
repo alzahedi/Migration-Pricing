@@ -41,32 +41,36 @@ def send_to_event_hub(data):
     print(f"Sent message to Event Hub successfully!")
 
 print("Starting event stream..............")
+
 # Continuous loop
 while True:
     # Generate a new uploadIdentifier for each iteration
     upload_identifier = str(uuid.uuid4())
 
-    # Send `sql-mi.json` and `sql-vm.json` from `sku` folder
-    for filename in ["sku-db.json", "sku-mi.json", "sku-vm.json"]:
-        file_path = os.path.join(sku_folder_path, filename)
-        file_content = read_json_file(file_path)
-        if file_content:
-            message = {
-                "uploadIdentifier": upload_identifier,
-                "body": file_content
-            }
-            send_to_event_hub(message)
+    # Send SKU files with their corresponding type
+    if os.path.exists(sku_folder_path):
+        for file_name in os.listdir(sku_folder_path):
+            if file_name.endswith(".json"):
+                file_path = os.path.join(sku_folder_path, file_name)
+                file_content = read_json_file(file_path)
+                if file_content:
+                    message = {
+                        "uploadIdentifier": upload_identifier,
+                        "type": file_name.replace(".json", ""),  # Extract file name as type
+                        "body": file_content
+                    }
+                    send_to_event_hub(message)
 
-    # Send all `.json` files from `suitability` folder
+    # Send Suitability files with type "suitability"
     if os.path.exists(suitability_folder_path):
         for file_name in os.listdir(suitability_folder_path):
             if file_name.endswith(".json"):
                 file_path = os.path.join(suitability_folder_path, file_name)
                 file_content = read_json_file(file_path)
-
                 if file_content:
                     message = {
                         "uploadIdentifier": upload_identifier,
+                        "type": "suitability",  # Generic type for suitability files
                         "body": file_content
                     }
                     send_to_event_hub(message)
