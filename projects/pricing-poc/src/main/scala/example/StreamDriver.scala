@@ -8,14 +8,18 @@ import com.azure.core.credential.TokenRequestContext
 import org.apache.spark.eventhubs.utils.AadAuthenticationCallback
 import java.util.concurrent.CompletableFuture
 import java.nio.file.Paths
+import org.apache.spark.sql.streaming.Trigger
+import example.reader.JsonReader
+import example.constants.MigrationAssessmentSourceTypes
+import example.transformations.TransformationsV1
+import example.constants.PlatformType
 
 object StreamDriver extends App {
 
-  // Load Log4j Configuration
+  val reportsDirPath = Paths.get(System.getProperty("user.dir"), "src", "main", "resources", "reports").toString
   val log4jConfigPath = Paths.get(System.getProperty("user.dir"), "log4j2.properties").toString
   System.setProperty("log4j.configurationFile", s"file://$log4jConfigPath")
 
-  // Initialize Spark session
   val spark = SparkSession.builder()
     .appName("EventHubReader")
     .master("local[*]") 
@@ -23,7 +27,6 @@ object StreamDriver extends App {
 
   import spark.implicits._
 
-  // Event Hub details
   val eventHubNamespace = "pricing-streaming"
   val eventHubName = "streaming-input"
 
@@ -43,20 +46,24 @@ object StreamDriver extends App {
     .setAadAuthCallback(aadAuthCallback)
     .setStartingPosition(EventPosition.fromStartOfStream)
 
-  // Read the Event Hub stream
   val eventStream = spark.readStream
     .format("eventhubs")
     .options(eventHubsConf.toMap)
     .load()
 
-  // Define JSON schema
   val eventSchema = StructType(Seq(
     StructField("uploadIdentifier", StringType, nullable = false),
     StructField("type", StringType, nullable = false),
     StructField("body", StringType, nullable = false)
   ))
 
-  // Parse JSON messages
+  val schemaStructNames: Map[MigrationAssessmentSourceTypes.Value, String] = Map(
+      MigrationAssessmentSourceTypes.Suitability -> "suitability_report_struct",
+      MigrationAssessmentSourceTypes.SkuRecommendationDB -> "sku_recommendation_azuresqldb_sku_recommendation_report_struct",
+      MigrationAssessmentSourceTypes.SkuRecommendationMI -> "sku_recommendation_azuresqlmi_sku_recommendation_report_struct",
+      MigrationAssessmentSourceTypes.SkuRecommendationVM -> "sku_recommendation_azuresqlvm_sku_recommendation_report_struct"
+    )
+
   val parsedStream = eventStream
     .selectExpr("CAST(body AS STRING) AS message")
     .select(from_json($"message", eventSchema).as("data"))
@@ -64,16 +71,76 @@ object StreamDriver extends App {
     .withColumn("timestamp", current_timestamp())  // Add event time column
 
   // Accumulate messages by uploadIdentifier
-  val aggregatedStream = parsedStream
-    .withWatermark("timestamp", "5 minutes")  // Allow late messages up to 5 minutes
-    .groupBy($"uploadIdentifier")
-    .agg(collect_list($"body").as("messages"))  // Collect all messages for the same uploadIdentifier
+  // val aggregatedStream = parsedStream
+  //   .withWatermark("timestamp", "5 minutes")
+  //   .groupBy($"uploadIdentifier")
+  //   .agg(collect_list($"body").as("messages"))
 
-  // Write accumulated messages to console
-  val query = aggregatedStream.writeStream
-    .outputMode("update")  // Only updated groups are outputted
-    .format("console")
+  // val query = aggregatedStream.writeStream
+  //   .outputMode("update")
+  //   .format("console")
+  //   .start()
+
+  val suitDF = processData(parsedStream, MigrationAssessmentSourceTypes.Suitability)
+                .transform(TransformationsV1.transformSuitability)
+  
+  val skuDbDF = processData(parsedStream, MigrationAssessmentSourceTypes.SkuRecommendationDB)
+                .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlDatabase, 
+                 schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationDB)))
+
+  val skuMiDF = processData(parsedStream, MigrationAssessmentSourceTypes.SkuRecommendationMI)
+                .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlManagedInstance,
+                 schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationMI)))
+
+  val skuVmDF = processData(parsedStream, MigrationAssessmentSourceTypes.SkuRecommendationVM)
+                .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlVirtualMachine,
+                schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationVM)))
+
+  suitDF.printSchema()
+  skuDbDF.printSchema()
+  skuMiDF.printSchema()
+  skuVmDF.printSchema()
+
+  val joinedDF = suitDF.as("es")
+                  .join(skuDbDF.as("esrasd"), expr("es.uploadIdentifier == esrasd.uploadIdentifier"), joinType = "inner")
+                  .join(skuMiDF.as("esrasm"), expr("es.uploadIdentifier == esrasm.uploadIdentifier"), joinType = "inner")
+                  .join(skuVmDF.as("esrasv"), expr("es.uploadIdentifier == esrasv.uploadIdentifier"), joinType = "inner")
+                  .drop("type")
+                  .drop("timestamp")
+                  .drop("uploadIdentifier")
+
+  joinedDF.printSchema()
+  
+  // Process the result, e.g., showing it or saving to a file
+  val query = joinedDF.writeStream
+    .outputMode("append")
+    .option("checkpointLocation", "/workspaces/pricing-poc/projects/pricing-poc/src/main/resources/output/checkpoint")
+    .trigger(Trigger.ProcessingTime("0 seconds")).queryName("myTable")
+    .format("memory")
     .start()
 
-  query.awaitTermination()
+  // println("Checking data.....")
+  // spark.sql("SELECT * FROM myTable").show(10000, true)
+  while(true){
+    println("Checking data.....")
+    Thread.sleep(1000)
+    spark.sql("SELECT * FROM myTable").show(10000, true)
+  }
+  //query.awaitTermination()
+
+  def processData(inDF: DataFrame, maType: MigrationAssessmentSourceTypes.Value): DataFrame = {
+    val jsonPaths: Map[MigrationAssessmentSourceTypes.Value, String] = Map(
+      MigrationAssessmentSourceTypes.Suitability -> Paths.get(reportsDirPath, "suitability", "suit.json").toString,
+      MigrationAssessmentSourceTypes.SkuRecommendationDB -> Paths.get(reportsDirPath, "sku", "sku-db.json").toString,
+      MigrationAssessmentSourceTypes.SkuRecommendationMI -> Paths.get(reportsDirPath, "sku", "sku-mi.json").toString,
+      MigrationAssessmentSourceTypes.SkuRecommendationVM -> Paths.get(reportsDirPath, "sku", "sku-vm.json").toString
+    )
+    val schema = JsonReader.readJson(spark, jsonPaths(maType)).schema
+
+    inDF.filter($"type" === maType.toString)
+        .select(col("*"), from_json(col("body"), schema).as("body_struct"))
+        .drop("body")
+        .select(col("*"), col("body_struct.*"))
+        .drop("body_struct")
+  }
 }

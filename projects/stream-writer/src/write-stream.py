@@ -56,7 +56,7 @@ while True:
                 if file_content:
                     message = {
                         "uploadIdentifier": upload_identifier,
-                        "type": file_name.replace(".json", ""),  # Extract file name as type
+                        "type": file_name.replace(".json", ""),
                         "body": file_content
                     }
                     send_to_event_hub(message)
@@ -70,7 +70,7 @@ while True:
                 if file_content:
                     message = {
                         "uploadIdentifier": upload_identifier,
-                        "type": "suitability",  # Generic type for suitability files
+                        "type": "Suitability",  # Generic type for suitability files
                         "body": file_content
                     }
                     send_to_event_hub(message)
@@ -78,4 +78,4 @@ while True:
     print("Data sent successfully! Waiting for next loop...\n")
 
     # Wait before the next iteration (adjust as needed)
-    time.sleep(10)  # Sends data every 10 seconds
+    time.sleep(60)  # Sends data every 10 seconds

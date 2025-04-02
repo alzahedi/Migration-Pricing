@@ -120,6 +120,14 @@ object AzureManagedDiskTier extends Enumeration {
   val Standard, Premium, Ultra = Value
 }
 
+object MigrationAssessmentSourceTypes extends Enumeration {
+  type TableTypes = Value
+  val Suitability, SkuRecommendationDB, SkuRecommendationMI, SkuRecommendationVM = Value
+}
+
+
+
+
 object AzureManagedDiskType extends Enumeration {
   type AzureManagedDiskType = Value
   val StandardHDD   = Value(1 << 0)  // Standard HDD
