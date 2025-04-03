@@ -127,7 +127,7 @@ object MigrationAssessmentSourceTypes extends Enumeration {
 
 object MigrationAssessmentConstants{
   val DefaultLateArrivingWatermarkTime: String = "5 minutes"
-  val DefaultAcrossStreamsIntervalMaxLag: String = "INTERVAL 2 MINUTES"
+  val DefaultAcrossStreamsIntervalMaxLag: String = "INTERVAL 5 MINUTES"
 }
 
 

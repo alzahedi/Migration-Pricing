@@ -30,6 +30,11 @@ object StreamDriver extends App {
   val eventHubNamespace = "pricing-streaming"
   val eventHubName = "streaming-input"
 
+  val suitabilityConsumerGroup = "suitability-instance-spark"
+  val skuDbConsumerGroup = "sku-sql-db-instance-spark"
+  val skuMiConsumerGroup = "sku-sql-mi-instance-spark"
+  val skuVmConsumerGroup = "sku-sql-vm-instance-spark"
+
   // Azure CLI Authentication
   val credential = new AzureCliCredentialBuilder().build()
   val tokenContext = new TokenRequestContext().addScopes("https://eventhubs.azure.net/.default")
@@ -40,16 +45,48 @@ object StreamDriver extends App {
       CompletableFuture.supplyAsync(() => credential.getToken(tokenContext).block().getToken)
     }
   }
+  
+  def createEventHubConf(consumerGroup: String): EventHubsConf = {
+    EventHubsConf(s"Endpoint=sb://$eventHubNamespace.servicebus.windows.net/;EntityPath=$eventHubName")
+      .setAadAuthCallback(aadAuthCallback)
+      .setConsumerGroup(consumerGroup)
+      .setStartingPosition(EventPosition.fromStartOfStream)
+  }
 
   // Configure Event Hubs
-  val eventHubsConf = EventHubsConf(s"Endpoint=sb://$eventHubNamespace.servicebus.windows.net/;EntityPath=$eventHubName")
-    .setAadAuthCallback(aadAuthCallback)
-    .setStartingPosition(EventPosition.fromStartOfStream)
+  // val eventHubsConf = EventHubsConf(s"Endpoint=sb://$eventHubNamespace.servicebus.windows.net/;EntityPath=$eventHubName")
+  //   .setAadAuthCallback(aadAuthCallback)
+  //   .setStartingPosition(EventPosition.fromStartOfStream)
 
-  val eventStream = spark.readStream
+  val suitabilityEventHubsConf = createEventHubConf(suitabilityConsumerGroup)
+  val skuDbEventHubsConf = createEventHubConf(skuDbConsumerGroup)
+  val skuMiEventHubsConf = createEventHubConf(skuMiConsumerGroup)
+  val skuVmEventHubsConf = createEventHubConf(skuVmConsumerGroup)
+
+  val suitabilityEventStream = spark.readStream
+  .format("eventhubs")
+  .options(suitabilityEventHubsConf.toMap)
+  .load()
+
+  val skuDbEventStream = spark.readStream
     .format("eventhubs")
-    .options(eventHubsConf.toMap)
+    .options(skuDbEventHubsConf.toMap)
     .load()
+
+  val skuMiEventStream = spark.readStream
+    .format("eventhubs")
+    .options(skuMiEventHubsConf.toMap)
+    .load()
+
+  val skuVmEventStream = spark.readStream
+    .format("eventhubs")
+    .options(skuVmEventHubsConf.toMap)
+    .load()
+
+  // val eventStream = spark.readStream
+  //   .format("eventhubs")
+  //   .options(eventHubsConf.toMap)
+  //   .load()
 
   val eventSchema = StructType(Seq(
     StructField("uploadIdentifier", StringType, nullable = false),
@@ -64,35 +101,37 @@ object StreamDriver extends App {
       MigrationAssessmentSourceTypes.SkuRecommendationVM -> "sku_recommendation_azuresqlvm_sku_recommendation_report_struct"
     )
 
-  val parsedStream = eventStream
-    .selectExpr("CAST(body AS STRING) AS message", "enqueuedTime")
-    .select(from_json($"message", eventSchema).as("data"), $"enqueuedTime")
-    .select("data.*", "enqueuedTime")
-    .withColumn("timestamp", current_timestamp())
+  // val parsedStream = eventStream
+  //   .selectExpr("CAST(body AS STRING) AS message", "enqueuedTime")
+  //   .select(from_json($"message", eventSchema).as("data"), $"enqueuedTime")
+  //   .select("data.*", "enqueuedTime")
+  //   .withColumn("timestamp", current_timestamp())
 
-  // Accumulate messages by uploadIdentifier
-  // val aggregatedStream = parsedStream
-  //   .withWatermark("timestamp", "5 minutes")
-  //   .groupBy($"uploadIdentifier")
-  //   .agg(collect_list($"body").as("messages"))
+  def parseStream(eventStream: DataFrame): DataFrame = {
+    eventStream
+      .selectExpr("CAST(body AS STRING) AS message", "enqueuedTime")
+      .select(from_json($"message", eventSchema).as("data"), $"enqueuedTime")
+      .select("data.*", "enqueuedTime")
+      .withColumn("timestamp", current_timestamp())
+  }
 
-  // val query = aggregatedStream.writeStream
-  //   .outputMode("update")
-  //   .format("console")
-  //   .start()
+  val suitabilityParsedStream = parseStream(suitabilityEventStream)
+  val skuDbParsedStream = parseStream(skuDbEventStream)
+  val skuMiParsedStream = parseStream(skuMiEventStream)
+  val skuVmParsedStream = parseStream(skuVmEventStream)
 
-  val suitDF = processData(parsedStream, MigrationAssessmentSourceTypes.Suitability)
+  val suitDF = processData(suitabilityParsedStream, MigrationAssessmentSourceTypes.Suitability)
                 .transform(TransformationsV1.transformSuitability)
   
-  val skuDbDF = processData(parsedStream, MigrationAssessmentSourceTypes.SkuRecommendationDB)
+  val skuDbDF = processData(skuDbParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationDB)
                 .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlDatabase, 
                  schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationDB)))
 
-  val skuMiDF = processData(parsedStream, MigrationAssessmentSourceTypes.SkuRecommendationMI)
+  val skuMiDF = processData(skuMiParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationMI)
                 .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlManagedInstance,
                  schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationMI)))
 
-  val skuVmDF = processData(parsedStream, MigrationAssessmentSourceTypes.SkuRecommendationVM)
+  val skuVmDF = processData(skuVmParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationVM)
                 .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlVirtualMachine,
                 schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationVM)))
 
@@ -103,15 +142,16 @@ object StreamDriver extends App {
 
   spark.conf.set("spark.sql.streaming.join.debug", "true")
   val joinedDF = suitDF.as("es")
-                  .join(skuDbDF.as("esrasd"), expr("""(es.uploadIdentifier == esrasd.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasd.enqueuedTime - INTERVAL 5 MINUTES) AND (esrasd.enqueuedTime + INTERVAL 5 MINUTES))"""), joinType = "inner")
-                  // .join(skuMiDF.as("esrasm"), expr(s"""es.uploadIdentifier == esrasm.uploadIdentifier AND es.enqueuedTime BETWEEN esrasm.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag} AND esrasm.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}"""), joinType = "inner")
-                  // .join(skuVmDF.as("esrasv"), expr(s"""es.uploadIdentifier == esrasv.uploadIdentifier  AND es.enqueuedTime BETWEEN esrasv.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag} AND esrasv.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}"""), joinType = "inner")
+                  .join(skuDbDF.as("esrasd"), expr(s"""(es.uploadIdentifier == esrasd.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasd.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasd.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
+                  //.join(skuMiDF.as("esrasm"), expr(s"""es.uploadIdentifier == esrasm.uploadIdentifier AND es.enqueuedTime BETWEEN esrasm.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag} AND esrasm.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}"""), joinType = "inner")
+                  //.join(skuVmDF.as("esrasv"), expr(s"""es.uploadIdentifier == esrasv.uploadIdentifier  AND es.enqueuedTime BETWEEN esrasv.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag} AND esrasv.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}"""), joinType = "inner")
                   .drop("type")
                   .drop("timestamp")
                   .drop("uploadIdentifier")
+                  //.drop("enqueuedTime")
 
   joinedDF.printSchema()
-  joinedDF.explain()
+  //joinedDF.explain()
  
 
   // Process the result, e.g., showing it or saving to a file
