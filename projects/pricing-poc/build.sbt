@@ -22,10 +22,10 @@ lazy val root = (project in file("."))
   )
 
 // Enable sbt-assembly for packaging a fat JAR
-enablePlugins(AssemblyPlugin)
+// enablePlugins(AssemblyPlugin)
 
-// Merge strategy for assembling JAR
-assembly / assemblyMergeStrategy := {
-  case PathList("META-INF", xs @ _*) => MergeStrategy.discard
-  case _                             => MergeStrategy.first
-}
+// // Merge strategy for assembling JAR
+// assembly / assemblyMergeStrategy := {
+//   case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+//   case _                             => MergeStrategy.first
+// }
