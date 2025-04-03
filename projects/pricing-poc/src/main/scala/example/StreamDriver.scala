@@ -117,7 +117,7 @@ object StreamDriver extends App {
   // Process the result, e.g., showing it or saving to a file
   val query = joinedDF.writeStream
     .outputMode("append")
-    .option("checkpointLocation", "/workspaces/pricing-poc/projects/pricing-poc/src/main/resources/output/checkpoint")
+    .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/checkpoint")
     .trigger(Trigger.ProcessingTime("60 seconds")).queryName("myTable")
     .format("memory")
     .start()
