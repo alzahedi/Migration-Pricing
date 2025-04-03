@@ -78,4 +78,4 @@ while True:
     print("Data sent successfully! Waiting for next loop...\n")
 
     # Wait before the next iteration (adjust as needed)
-    time.sleep(60)  # Sends data every 10 seconds
+    time.sleep(30)  # Sends data every 10 seconds

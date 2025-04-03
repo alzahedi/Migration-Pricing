@@ -23,6 +23,7 @@ object TransformationsV1 {
         col("uploadIdentifier"),
         col("type"),
         col("timestamp"),
+        col("enqueuedTime"),
         col("suitability_report_struct"))
   }
 
@@ -86,6 +87,7 @@ object TransformationsV1 {
       col("uploadIdentifier"),
       col("type"),
       col("timestamp"),
+      col("enqueuedTime"),
       struct(
         //col("recommendationStatus").alias("recommendationStatus"),
         lit(0).alias("numberOfServerBlockerIssues"),

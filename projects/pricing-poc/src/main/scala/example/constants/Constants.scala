@@ -125,7 +125,10 @@ object MigrationAssessmentSourceTypes extends Enumeration {
   val Suitability, SkuRecommendationDB, SkuRecommendationMI, SkuRecommendationVM = Value
 }
 
-
+object MigrationAssessmentConstants{
+  val DefaultLateArrivingWatermarkTime: String = "5 minutes"
+  val DefaultAcrossStreamsIntervalMaxLag: String = "INTERVAL 2 MINUTES"
+}
 
 
 object AzureManagedDiskType extends Enumeration {
