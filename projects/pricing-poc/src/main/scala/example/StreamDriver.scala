@@ -29,6 +29,7 @@ object StreamDriver extends App {
 
   val eventHubNamespace = "pricing-streaming"
   val eventHubName = "streaming-input"
+  val outputEventHubName = "streaming-output"
 
   val suitabilityConsumerGroup = "suitability-instance-spark"
   val skuDbConsumerGroup = "sku-sql-db-instance-spark"
@@ -52,6 +53,9 @@ object StreamDriver extends App {
       .setConsumerGroup(consumerGroup)
       .setStartingPosition(EventPosition.fromStartOfStream)
   }
+
+  val outputEventHubConf = EventHubsConf(s"Endpoint=sb://$eventHubNamespace.servicebus.windows.net/;EntityPath=$outputEventHubName")
+    .setAadAuthCallback(aadAuthCallback)
 
   val suitabilityEventHubsConf = createEventHubConf(suitabilityConsumerGroup)
   val skuDbEventHubsConf = createEventHubConf(skuDbConsumerGroup)
@@ -136,22 +140,31 @@ object StreamDriver extends App {
                   //.drop("enqueuedTime")
 
   joinedDF.printSchema()
-  processInstanceUpdateEventStream(joinedDF).printSchema()
+  val outputDF = processInstanceUpdateEventStream(joinedDF)
 
   // Process the result, e.g., showing it or saving to a file
-  val query = joinedDF.writeStream
-    .outputMode("append")
-    .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/checkpoint")
-    .trigger(Trigger.ProcessingTime("60 seconds")).queryName("myTable")
-    .format("memory")
+  // val query = outputDF.writeStream
+  //   .outputMode("append")
+  //   .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/checkpoint")
+  //   .trigger(Trigger.ProcessingTime("60 seconds")).queryName("myTable")
+  //   .format("memory")
+  //   .start()
+
+  // while(true) {
+  //   println("Checking data.....")
+  //   Thread.sleep(1000)
+  //   spark.sql("SELECT * FROM myTable").show(10000, true)
+  // }
+
+  println("Starting write to event hub....")
+  val query = outputDF
+    .writeStream
+    .format("eventhubs")
+    .options(outputEventHubConf.toMap)
+    .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/eventhub-checkpoint") // Must be a reliable location like DBFS or HDFS
     .start()
 
-  while(true) {
-    println("Checking data.....")
-    Thread.sleep(1000)
-    spark.sql("SELECT * FROM myTable").show(10000, true)
-  }
-  
+  query.awaitTermination()
 
   def processStream(inDF: DataFrame, maType: MigrationAssessmentSourceTypes.Value): DataFrame = {
     val jsonPaths: Map[MigrationAssessmentSourceTypes.Value, String] = Map(
@@ -179,7 +192,7 @@ object StreamDriver extends App {
         .withColumn("azuresqldb_skuRecommendationResults", col("sku_recommendation_azuresqldb_sku_recommendation_report_struct"))
         .withColumn("azuresqlmi_skuRecommendationResults", col("sku_recommendation_azuresqlmi_sku_recommendation_report_struct"))
         .withColumn("arm_resource",
-          //to_json(
+          to_json(
                   struct(
                     struct(
                         struct(
@@ -273,7 +286,7 @@ object StreamDriver extends App {
                     ).alias("properties")
               )
             )
-          //)   
+          )   
         .select("arm_resource")
     
     // updatedDF.printSchema()
