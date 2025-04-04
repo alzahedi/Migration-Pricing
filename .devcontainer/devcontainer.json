@@ -1,5 +1,5 @@
 {
   "name": "PricingPoc",
-  "image": "pricingpoc.azurecr.io/pricingdev:c5ec01b6c6370953d6e4adcc62bae6093f69e7859f920428cded41d7c75f2fea",
+  "image": "pricingpoc.azurecr.io/pricingdev:586e1cb34da50551116989d1f4b176145b2e12a19eae54a7afc2620500101313",
   "remoteUser": "vscode"
 }

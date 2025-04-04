@@ -156,15 +156,19 @@ object StreamDriver extends App {
   //   spark.sql("SELECT * FROM myTable").show(10000, true)
   // }
 
+  val serializedDF = outputDF
+  .select(to_json(struct("*")).cast("string").alias("body"))
+  .selectExpr("CAST(body AS BINARY) AS body")
+
   println("Starting write to event hub....")
-  val query = outputDF
+  val query = serializedDF
     .writeStream
+    .outputMode("append")
     .format("eventhubs")
     .options(outputEventHubConf.toMap)
     .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/eventhub-checkpoint") // Must be a reliable location like DBFS or HDFS
     .start()
-
-  query.awaitTermination()
+    .awaitTermination()
 
   def processStream(inDF: DataFrame, maType: MigrationAssessmentSourceTypes.Value): DataFrame = {
     val jsonPaths: Map[MigrationAssessmentSourceTypes.Value, String] = Map(
