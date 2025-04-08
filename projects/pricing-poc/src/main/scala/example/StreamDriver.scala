@@ -160,6 +160,12 @@ object StreamDriver extends App {
   .select(to_json(struct("*")).cast("string").alias("body"))
   .selectExpr("CAST(body AS BINARY) AS body")
 
+  // val serializedDF = outputDF
+  //   .select(to_json(struct("*")).alias("body"))
+  //   .selectExpr("CAST(body AS BINARY) AS body")
+
+  serializedDF.printSchema()
+
   println("Starting write to event hub....")
   val query = serializedDF
     .writeStream
@@ -206,6 +212,7 @@ object StreamDriver extends App {
                                 struct(
                                     struct(
                                         col("suitability_report_struct.AzureSqlDatabase_RecommendationStatus").alias("recommendationStatus"),
+                                        col("suitability_report_struct.AzureSqlDatabase_NumberOfServerBlockerIssues").alias("numberOfServerBlockerIssues"),
                                         //element_at(col("suitability_report_struct.Servers.TargetReadinesses.AzureSqlDatabase.NumberOfServerBlockerIssues"), 1).alias("numberOfServerBlockerIssues"),
                                         struct(
                                             struct(
@@ -231,6 +238,7 @@ object StreamDriver extends App {
                                     ).alias("azureSqlDatabase"),
                                     struct(
                                         col("suitability_report_struct.AzureSqlManagedInstance_RecommendationStatus").alias("recommendationStatus"),
+                                        col("suitability_report_struct.AzureSqlManagedInstance_NumberOfServerBlockerIssues").alias("numberOfServerBlockerIssues"),
                                         //element_at(col("suitability_report_struct.Servers.TargetReadinesses.AzureSqlManagedInstance.NumberOfServerBlockerIssues"), 1).alias("numberOfServerBlockerIssues"),
                                         struct(
                                             struct(
@@ -256,7 +264,7 @@ object StreamDriver extends App {
                                     ).alias("azureSqlManagedInstance"),
                                     struct(
                                         lit("Ready").alias("recommendationStatus"),
-                                        //lit(0).alias("numberOfServerBlockerIssues"),
+                                        lit(0).alias("numberOfServerBlockerIssues"),
                                         struct(
                                             struct(
                                                 col("azuresqlvm_skuRecommendationResults.TargetSku.Category.AvailableVmSkus").alias("availableVmSkus"),

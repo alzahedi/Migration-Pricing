@@ -15,8 +15,12 @@ object TransformationsV1 {
             col("Servers.ServerAssessments").alias("ServerAssessments"),
             col("Servers.TargetReadinesses.AzureSqlDatabase.RecommendationStatus")
               .alias("AzureSqlDatabase_RecommendationStatus"),
+            col("Servers.TargetReadinesses.AzureSqlDatabase.NumberOfServerBlockerIssues")
+              .alias("AzureSqlDatabase_NumberOfServerBlockerIssues"),
             col("Servers.TargetReadinesses.AzureSqlManagedInstance.RecommendationStatus")
-              .alias("AzureSqlManagedInstance_RecommendationStatus")
+              .alias("AzureSqlManagedInstance_RecommendationStatus"),
+            col("Servers.TargetReadinesses.AzureSqlManagedInstance.NumberOfServerBlockerIssues")
+              .alias("AzureSqlManagedInstance_NumberOfServerBlockerIssues")
           )
         )
       .select(
@@ -90,7 +94,6 @@ object TransformationsV1 {
       col("enqueuedTime"),
       struct(
         //col("recommendationStatus").alias("recommendationStatus"),
-        lit(0).alias("numberOfServerBlockerIssues"),
         col("targetSku"),
         col("monthlyCost")
       ).alias(payloadColName)
