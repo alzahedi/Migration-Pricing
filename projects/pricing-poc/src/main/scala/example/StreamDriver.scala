@@ -13,6 +13,7 @@ import example.reader.JsonReader
 import example.constants.{MigrationAssessmentSourceTypes, MigrationAssessmentConstants}
 import example.transformations.TransformationsV1
 import example.constants.PlatformType
+import example.computations.PricingComputationsV1
 
 object StreamDriver extends App {
 
@@ -109,72 +110,76 @@ object StreamDriver extends App {
   val skuMiParsedStream = parseStream(skuMiEventStream)
   val skuVmParsedStream = parseStream(skuVmEventStream)
 
-  val suitDF = processStream(suitabilityParsedStream, MigrationAssessmentSourceTypes.Suitability)
-                .transform(TransformationsV1.transformSuitability)
+  val skuDbProcessStream = processStream(skuDbParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationDB)
+  val dbPricingData = PricingComputationsV1.computePricingForSqlDB(skuDbProcessStream)
+
+  // val suitDF = processStream(suitabilityParsedStream, MigrationAssessmentSourceTypes.Suitability)
+  //               .transform(TransformationsV1.transformSuitability)
   
-  val skuDbDF = processStream(skuDbParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationDB)
-                .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlDatabase, 
-                 schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationDB)))
+  // val skuDbDF = processStream(skuDbParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationDB)
+  //               .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlDatabase, 
+  //                schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationDB)))
 
-  val skuMiDF = processStream(skuMiParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationMI)
-                .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlManagedInstance,
-                 schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationMI)))
+  // val skuMiDF = processStream(skuMiParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationMI)
+  //               .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlManagedInstance,
+  //                schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationMI)))
 
-  val skuVmDF = processStream(skuVmParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationVM)
-                .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlVirtualMachine,
-                schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationVM)))
+  // val skuVmDF = processStream(skuVmParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationVM)
+  //               .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlVirtualMachine,
+  //               schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationVM)))
 
-  suitDF.printSchema()
-  skuDbDF.printSchema()
-  skuMiDF.printSchema()
-  skuVmDF.printSchema()
+  // suitDF.printSchema()
+  // skuDbDF.printSchema()
+  // skuMiDF.printSchema()
+  // skuVmDF.printSchema()
 
-  spark.conf.set("spark.sql.streaming.join.debug", "true")
-  val joinedDF = suitDF.as("es")
-                  .join(skuDbDF.as("esrasd"), expr(s"""(es.uploadIdentifier == esrasd.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasd.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasd.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
-                  .join(skuMiDF.as("esrasm"), expr(s"""(es.uploadIdentifier == esrasm.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasm.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasm.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
-                  .join(skuVmDF.as("esrasv"), expr(s"""(es.uploadIdentifier == esrasv.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasv.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasv.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
-                  .drop("type")
-                  .drop("timestamp")
-                  .drop("uploadIdentifier")
-                  //.drop("enqueuedTime")
+  // spark.conf.set("spark.sql.streaming.join.debug", "true")
+  // val joinedDF = suitDF.as("es")
+  //                 .join(skuDbDF.as("esrasd"), expr(s"""(es.uploadIdentifier == esrasd.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasd.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasd.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
+  //                 .join(skuMiDF.as("esrasm"), expr(s"""(es.uploadIdentifier == esrasm.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasm.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasm.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
+  //                 .join(skuVmDF.as("esrasv"), expr(s"""(es.uploadIdentifier == esrasv.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasv.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasv.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
+  //                 .drop("type")
+  //                 .drop("timestamp")
+  //                 .drop("uploadIdentifier")
+  //                 //.drop("enqueuedTime")
 
-  joinedDF.printSchema()
-  val outputDF = processInstanceUpdateEventStream(joinedDF)
+  // //joinedDF.printSchema()
+  // val outputDF = processInstanceUpdateEventStream(joinedDF)
+  dbPricingData.printSchema()
 
   // Process the result, e.g., showing it or saving to a file
-  // val query = outputDF.writeStream
-  //   .outputMode("append")
-  //   .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/checkpoint")
-  //   .trigger(Trigger.ProcessingTime("60 seconds")).queryName("myTable")
-  //   .format("memory")
-  //   .start()
+  val query = dbPricingData.writeStream
+    .outputMode("append")
+    .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/checkpoint")
+    .trigger(Trigger.ProcessingTime("60 seconds")).queryName("myTable")
+    .format("memory")
+    .start()
 
-  // while(true) {
-  //   println("Checking data.....")
-  //   Thread.sleep(1000)
-  //   spark.sql("SELECT * FROM myTable").show(10000, true)
-  // }
+  while(true) {
+    println("Checking data.....")
+    Thread.sleep(1000)
+    spark.sql("SELECT computeCost1Yr, computeCost3Yr, monthlyCostOptions FROM myTable").show(10000, true)
+  }
 
-  val serializedDF = outputDF
-  .select(to_json(struct("*")).cast("string").alias("body"))
-  .selectExpr("CAST(body AS BINARY) AS body")
+  // val serializedDF = outputDF
+  // .select(to_json(struct("*")).cast("string").alias("body"))
+  // .selectExpr("CAST(body AS BINARY) AS body")
 
   // val serializedDF = outputDF
   //   .select(to_json(struct("*")).alias("body"))
   //   .selectExpr("CAST(body AS BINARY) AS body")
 
-  serializedDF.printSchema()
+  // serializedDF.printSchema()
 
-  println("Starting write to event hub....")
-  val query = serializedDF
-    .writeStream
-    .outputMode("append")
-    .format("eventhubs")
-    .options(outputEventHubConf.toMap)
-    .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/eventhub-checkpoint") // Must be a reliable location like DBFS or HDFS
-    .start()
-    .awaitTermination()
+  // println("Starting write to event hub....")
+  // val query = serializedDF
+  //   .writeStream
+  //   .outputMode("append")
+  //   .format("eventhubs")
+  //   .options(outputEventHubConf.toMap)
+  //   .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/eventhub-checkpoint") // Must be a reliable location like DBFS or HDFS
+  //   .start()
+  //   .awaitTermination()
 
   def processStream(inDF: DataFrame, maType: MigrationAssessmentSourceTypes.Value): DataFrame = {
     val jsonPaths: Map[MigrationAssessmentSourceTypes.Value, String] = Map(

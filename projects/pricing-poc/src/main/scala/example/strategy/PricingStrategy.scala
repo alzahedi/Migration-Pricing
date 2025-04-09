@@ -6,7 +6,7 @@ trait PricingStrategy {
   def computeCost(platformDf: DataFrame, pricingDf: DataFrame): DataFrame
   def storageCost(platformDf: DataFrame, pricingDf: DataFrame): DataFrame
 
-   protected def calculateMonthlyCost(df: DataFrame, columnName: String, factor: Double, operation: (Column, Double) => Column): DataFrame = {
-    df.withColumn(columnName, round(operation(col(columnName), factor), 2))
+   protected def calculateMonthlyCost(column: Column, factor: Double, operation: (Column, Double) => Column): Column = {
+    round(operation(column, factor), 2)
   }
 }
