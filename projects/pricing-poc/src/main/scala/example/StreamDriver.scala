@@ -158,7 +158,7 @@ object StreamDriver extends App {
   while(true) {
     println("Checking data.....")
     Thread.sleep(1000)
-    spark.sql("SELECT computeCost1Yr, computeCost3Yr, monthlyCostOptions FROM myTable").show(10000, true)
+    spark.sql("SELECT computeCost1Yr, computeCost3Yr, storageCost, monthlyCostOptions FROM myTable").show(10000, true)
   }
 
   // val serializedDF = outputDF

@@ -1,41 +1,42 @@
 package example.strategy
 
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
 import example.constants.{AzureSqlPaaSServiceTier, RecommendationConstants, AzureSqlPaaSHardwareType, PricingType}
 import example.constants.PlatformType
-import example.constants.ReservationTermToNumMap
 import org.apache.spark.sql.Column
 
 class ReservedProdPaaSPricing extends PricingStrategy {
-  
+
   private def normalizePlatformDf(df: DataFrame): DataFrame = {
-     df.withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
-       .withColumn("SkuRecommendationResults", explode(col("SkuRecommendationForServers.SkuRecommendationResults")))
-       .withColumn("sqlServiceTier",
-         when(col("SkuRecommendationResults.TargetSku.Category.SqlServiceTier").isin("General Purpose", "Next-Gen General Purpose"), "General Purpose")
-           .when(col("SkuRecommendationResults.TargetSku.Category.SqlServiceTier") === "Business Critical", "Business Critical")
-           .when(col("SkuRecommendationResults.TargetSku.Category.SqlServiceTier") === "Hyperscale", "Hyperscale")
-           .otherwise("")
-       )
-       .withColumn("sqlHardwareType",
-         when(col("SkuRecommendationResults.TargetSku.Category.HardwareType") === "Gen5", "Gen5")
-           .when(col("SkuRecommendationResults.TargetSku.Category.HardwareType") === "Premium Series", "Premium Series Compute")
-           .when(col("SkuRecommendationResults.TargetSku.Category.HardwareType") === "Premium Series - Memory Optimized", "Premium Series Memory Optimized Compute")
-           .otherwise("")
-       )
-       .withColumn("computeSize", col("SkuRecommendationResults.TargetSku.ComputeSize"))
-   }
+    df.withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
+      .withColumn("SkuRecommendationResults", explode(col("SkuRecommendationForServers.SkuRecommendationResults")))
+      .withColumn("sqlServiceTier",
+        when(col("SkuRecommendationResults.TargetSku.Category.SqlServiceTier").isin("General Purpose", "Next-Gen General Purpose"), "General Purpose")
+          .when(col("SkuRecommendationResults.TargetSku.Category.SqlServiceTier") === "Business Critical", "Business Critical")
+          .when(col("SkuRecommendationResults.TargetSku.Category.SqlServiceTier") === "Hyperscale", "Hyperscale")
+          .otherwise("Unknown")
+      )
+      .withColumn("sqlHardwareType",
+        when(col("SkuRecommendationResults.TargetSku.Category.HardwareType") === "Gen5", "Gen5")
+          .when(col("SkuRecommendationResults.TargetSku.Category.HardwareType") === "Premium Series", "Premium Series Compute")
+          .when(col("SkuRecommendationResults.TargetSku.Category.HardwareType") === "Premium Series - Memory Optimized", "Premium Series Memory Optimized Compute")
+          .otherwise("Unknown")
+      )
+      .withColumn("computeSize", col("SkuRecommendationResults.TargetSku.ComputeSize"))
+      .withColumn("storageMaxSizeInMb", col("SkuRecommendationResults.TargetSku.StorageMaxSizeInMb"))
+      .withColumn("targetPlatform", col("SkuRecommendationResults.TargetSku.Category.SqlTargetPlatform"))
+      .withColumn("storageMaxSizeInGb", col("SkuRecommendationResults.TargetSku.StorageMaxSizeInMb") / 1024)
+  }
 
   private def getMinPricingDf(pricingDf: DataFrame, reservationTerm: String): DataFrame = {
     pricingDf
       .filter(
         col("skuName") === "vCore" &&
-        col("location") === "US West" &&
-        col("type") === PricingType.Reservation.toString &&
-        col("reservationTerm") === reservationTerm &&
-        col("UnitOfMeasure") === "1 Hour"
+          col("location") === "US West" &&
+          col("type") === PricingType.Reservation.toString &&
+          col("reservationTerm") === reservationTerm &&
+          col("UnitOfMeasure") === "1 Hour"
       )
       .withColumn("sqlServiceTier",
         when(col("productName").contains("General Purpose"), "General Purpose")
@@ -53,18 +54,37 @@ class ReservedProdPaaSPricing extends PricingStrategy {
       .agg(min("retailPrice").alias(s"minRetailPrice_$reservationTerm"))
   }
 
-  override def computeCost(platformDf: DataFrame, pricingDf: DataFrame): DataFrame = {
+  override def computeCost(platformDf: DataFrame, pricingDf: DataFrame, storageDf: DataFrame): DataFrame = {
     val explodedDf = normalizePlatformDf(platformDf)
 
     val minPricing1Yr = getMinPricingDf(pricingDf, "1 Year")
     val minPricing3Yr = getMinPricingDf(pricingDf, "3 Years")
 
-    minPricing1Yr.show(false)
-    minPricing3Yr.show(false)
-
-    val withPrices = explodedDf
+    val computeCostDf = explodedDf
       .join(minPricing1Yr, Seq("sqlServiceTier", "sqlHardwareType"), "inner")
       .join(minPricing3Yr, Seq("sqlServiceTier", "sqlHardwareType"), "inner")
+
+    // Inline storage pricing join
+    val storagePricingDf = storageDf
+      .filter(
+        col("location") === "US West" &&
+        col("type") === PricingType.Consumption.toString
+      )
+      .select(col("skuName"), col("retailPrice"))
+
+    storagePricingDf.show(false)
+    val finalDf = computeCostDf
+      .join(storagePricingDf, computeCostDf("sqlServiceTier") === storagePricingDf("skuName"), "inner")
+      .withColumn("storageCost",
+        bround(
+          when(col("targetPlatform") === PlatformType.AzureSqlManagedInstance.toString,
+            col("retailPrice") * greatest(col("storageMaxSizeInGb") - 32, lit(0))
+          ).otherwise(
+            col("retailPrice") * (col("storageMaxSizeInGb") * 1.3)
+          ),
+          2
+        )
+      )
       .withColumn("computeCost1Yr",
         calculateMonthlyCost(
           col("computeSize") * col("minRetailPrice_1 Year"),
@@ -84,7 +104,7 @@ class ReservedProdPaaSPricing extends PricingStrategy {
           lit("With1YearRIAndProd").as("keyName"),
           struct(
             col("computeCost1Yr").as("computeCost"),
-            lit(0.0).as("storageCost"),
+            col("storageCost"),
             lit(0.0).as("iopsCost")
           ).as("keyValue")
         ),
@@ -92,78 +112,12 @@ class ReservedProdPaaSPricing extends PricingStrategy {
           lit("With3YearRIAndProd").as("keyName"),
           struct(
             col("computeCost3Yr").as("computeCost"),
-            lit(0.0).as("storageCost"),
+            col("storageCost"),
             lit(0.0).as("iopsCost")
           ).as("keyValue")
         )
       ))
 
-    withPrices
-  }
-
-
-  override def storageCost(platformDf: DataFrame, pricingDf: DataFrame): DataFrame = {
-     val flattenedDf = platformDf
-      .withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
-      .withColumn("SkuRecommendationResults", explode(col("SkuRecommendationForServers.SkuRecommendationResults")))
-      .select(
-        col("SkuRecommendationForServers.ServerName"),
-        col("SkuRecommendationResults.TargetSku"))
-
-    val sqlTierExpr = expr(
-      "CASE " +
-        "WHEN originalSqlServiceTier = 'General Purpose' OR originalSqlServiceTier = 'Next-Gen General Purpose' THEN 'General Purpose' " +
-        "WHEN originalSqlServiceTier = 'Business Critical' THEN 'Business Critical' " +
-        "WHEN originalSqlServiceTier = 'Hyperscale' THEN 'Hyperscale' " +
-        "ELSE '' END"
-    ).alias("sqlServiceTier")
-
-    val targetSkuExpandedDF = flattenedDf
-      .select(col("ServerName"), col("TargetSku.Category.SqlServiceTier").alias("originalSqlServiceTier"), 
-        col("TargetSku.Category.HardwareType").alias("originalSqlHardwareType"),
-        col("TargetSku.StorageMaxSizeInMb").alias("storageMaxSizeInMb"),
-        col("TargetSku.Category.SqlTargetPlatform").alias("targetPlatform")
-      )
-      .withColumn("sqlServiceTier", sqlTierExpr)
-      .withColumn("storageMaxSizeInGb", col("storageMaxSizeInMb") / 1024)
-    
-    //targetSkuExpandedDF.show(false)
-
-    val filteredPricingDF = pricingDf.filter(
-       col("location") === "US West" &&
-       col("type") === PricingType.Consumption.toString 
-    )
-    val targetAlias = "target"
-    val pricingAlias = "pricing"
-
-    val joinedDF = targetSkuExpandedDF.as(targetAlias)
-      .join(
-        filteredPricingDF.as(pricingAlias),
-        col(s"$pricingAlias.skuName") === col(s"$targetAlias.sqlServiceTier"),
-        "inner"
-    )
-    
-    val resultDF = joinedDF
-      .orderBy(col(s"$pricingAlias.retailPrice").asc)
-      .limit(1)
-      .select(col("retailPrice"), col("storageMaxSizeInGb"), col("targetPlatform"))
-      .withColumn(
-        "storageCost",
-         bround(
-          when(col("targetPlatform") === PlatformType.AzureSqlManagedInstance.toString,
-            col("retailPrice") * greatest(col("storageMaxSizeInGb") - 32, lit(0)) // Handles max(storageMaxSizeInGb - 32, 0)
-          ).otherwise(
-            col("retailPrice") * (col("storageMaxSizeInGb") * 1.3)
-          ), 
-        2)
-      )
-      .drop("retailPrice")
-      .drop("storageMaxSizeInGb")
-      .drop("targetPlatform")
-      .toDF()
-    
-   // resultDF.show(false)
-    resultDF
+    finalDf
   }
 }
-

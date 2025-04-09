@@ -99,7 +99,7 @@ object PricingComputationsV1 {
     //     )
     // )
 
-    new ReservedProdPaaSPricing().computeCost(df, computeDataFrame)
+    new ReservedProdPaaSPricing().computeCost(df, computeDataFrame, storageDataFrame)
     // val with1YrProdCost = new ReservedProdPaaSPricing("1 Year").computeCost(df, computeDataFrame)
     // val with3YrProdCost = new ReservedProdPaaSPricing("3 Year").computeCost(df, computeDataFrame)
 
