@@ -85,131 +85,19 @@ object PricingComputationsV1 {
     val pricingDataFrames = loadPricingDataFrames(PlatformType.AzureSqlDatabase)
     val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
     val storageDataFrame = loadPricingDataFrames(PlatformType.AzureSqlManagedInstance).get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
-    
-    // df.withColumn("monthlyCostOptions", 
-    //     array(
-    //         struct(
-    //             lit("With1YearRIAndProd").as("keyName"),
-    //             struct(
-    //               new ReservedProdPaaSPricing("1 Year").computeCost(df, computeDataFrame).as("computeCost"),
-    //               lit(0.0).as("storageCost"),
-    //               lit(0.0).as("iopsCost")
-    //             ).as("keyValue")
-    //         )
-    //     )
-    // )
 
     new ReservedProdPaaSPricing().computeCost(df, computeDataFrame, storageDataFrame)
-    // val with1YrProdCost = new ReservedProdPaaSPricing("1 Year").computeCost(df, computeDataFrame)
-    // val with3YrProdCost = new ReservedProdPaaSPricing("3 Year").computeCost(df, computeDataFrame)
-
-    // df.withColumn("monthlyCostOptions", array(
-    //   struct(
-    //     lit("With1YearRIAndProd").as("keyName"),
-    //     struct(
-    //       with1YrProdCost.col("computeCost"),
-    //       lit(0.0).as("storageCost"),
-    //       lit(0.0).as("iopsCost")
-    //     ).as("keyValue")
-    //   ),
-    //   struct(
-    //     lit("With3YearRIAndProd").as("keyName"),
-    //     struct(
-    //       with3YrProdCost.col("computeCost"),
-    //       lit(0.0).as("storageCost"),
-    //       lit(0.0).as("iopsCost")
-    //     ).as("keyValue")
-    //   )
-    // ))    
-
-    // This works
-    // val enrichedDf = new ReservedProdPaaSPricing("1 Year").computeCost(df, computeDataFrame)
-
-    // enrichedDf.withColumn("monthlyCostOptions", 
-    //   array(
-    //     struct(
-    //       lit("With1YearRIAndProd").as("keyName"),
-    //       struct(
-    //         col("computeCost"),
-    //         lit(0.0).as("storageCost"),
-    //         lit(0.0).as("iopsCost")
-    //       ).as("keyValue")
-    //     )
-    //   )
-    // )
-
-    //import spark.implicits._
-
-    // val pricingConfigs = Seq(
-    //     ("With1YearRIAndProd", "1 Year", "RI", "Prod"),
-    //     ("With3YearRIAndProd", "3 Years", "RI", "Prod")
-    // ).toDF("keyName", "reservationTerm", "pricingType", "environment")
-
-    // val expandedDF = df.crossJoin(pricingConfigs)
-    
-    // expandedDF.withColumn("iopsCost", lit(0.0))
-    // val withCostDF = expandedDF
-    // .withColumn("computeCost",
-    //   when(
-    //     col("pricingType") === "RI" && col("environment") === "Prod" && col("reservationTerm") === "1 Year",
-    //     new ReservedProdPaaSPricing("1 Year").computeCost(expandedDF, computeDataFrame).col("computeCost")
-    //   ).when(
-    //     col("pricingType") === "RI" && col("environment") === "Prod" && col("reservationTerm") === "3 Years",
-    //     new ReservedProdPaaSPricing("3 Years").computeCost(expandedDF, computeDataFrame).col("computeCost")
-    //   ).otherwise(lit(0.0))
-    // )
-    // .withColumn("storageCost",
-    //   when(
-    //     col("pricingType") === "RI" && col("environment") === "Prod" && col("reservationTerm") === "1 Year",
-    //     new ReservedProdPaaSPricing("1 Year").storageCost(expandedDF, storageDataFrame).col("storageCost")
-    //   ).when(
-    //     col("pricingType") === "RI" && col("environment") === "Prod" && col("reservationTerm") === "3 Years",
-    //     new ReservedProdPaaSPricing("3 Years").storageCost(expandedDF, storageDataFrame).col("storageCost")
-    //   ).otherwise(lit(0.0))
-    // )
-    // .withColumn("iopsCost", lit(0.0))
-
-  // Final format
-//   withCostDF.select(
-//     col("keyName"),
-//     struct(
-//         col("computeCost"), 
-//         col("storageCost"), 
-//         col("iopsCost")
-//         )
-//     .alias("keyValue")
-//   )
-
-    // Generate pricing DataFrames dynamically
-    // val pricingDFs = pricingConfigs.map { case (keyName, term, pricingType, environment) =>
-    //   generatePricingValues(df, computeDataFrame, storageDataFrame, term, environment, "PaaS", pricingType)
-    //     .withColumn("keyName", lit(keyName))
-    // }
-
-    // structurePricingData(pricingDFs)
 
   }
 
-
-//   def computePricingForSqlMI(df: DataFrame): DataFrame = {
-//     implicit val spark: SparkSession = df.sparkSession
-//     val pricingDataFrames = loadPricingDataFrames(PlatformType.AzureSqlManagedInstance)
-//     val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
-//     val storageDataFrame = pricingDataFrames.get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
+  def computePricingForSqlMI(df: DataFrame): DataFrame = {
+    implicit val spark: SparkSession = df.sparkSession
+    val pricingDataFrames = loadPricingDataFrames(PlatformType.AzureSqlManagedInstance)
+    val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
+    val storageDataFrame = pricingDataFrames.get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
     
-//     val pricingConfigs = Seq(
-//       ("With1YearRIAndProd", "1 Year", "RI", "Prod"),
-//       ("With3YearRIAndProd", "3 Years", "RI", "Prod")
-//     )
-
-//     // Generate pricing DataFrames dynamically
-//     val pricingDFs = pricingConfigs.map { case (keyName, term, pricingType, environment) =>
-//       generatePricingValues(df, computeDataFrame, storageDataFrame, term, environment, "PaaS", pricingType)
-//         .withColumn("keyName", lit(keyName))
-//     }
-
-//     structurePricingData(pricingDFs)
-//   }
+    new ReservedProdPaaSPricing().computeCost(df, computeDataFrame, storageDataFrame)
+  }
 
 //   def computePricingForSqlVM(df: DataFrame): DataFrame = {
 //     implicit val spark: SparkSession = df.sparkSession

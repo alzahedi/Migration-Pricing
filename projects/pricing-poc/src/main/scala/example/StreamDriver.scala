@@ -111,7 +111,10 @@ object StreamDriver extends App {
   val skuVmParsedStream = parseStream(skuVmEventStream)
 
   val skuDbProcessStream = processStream(skuDbParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationDB)
+  val skuMiProcessStream = processStream(skuMiParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationMI)
+
   val dbPricingData = PricingComputationsV1.computePricingForSqlDB(skuDbProcessStream)
+  val miPricingData = PricingComputationsV1.computePricingForSqlMI(skuMiProcessStream)
 
   // val suitDF = processStream(suitabilityParsedStream, MigrationAssessmentSourceTypes.Suitability)
   //               .transform(TransformationsV1.transformSuitability)
@@ -145,10 +148,10 @@ object StreamDriver extends App {
 
   // //joinedDF.printSchema()
   // val outputDF = processInstanceUpdateEventStream(joinedDF)
-  dbPricingData.printSchema()
+  miPricingData.printSchema()
 
   // Process the result, e.g., showing it or saving to a file
-  val query = dbPricingData.writeStream
+  val query = miPricingData.writeStream
     .outputMode("append")
     .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/checkpoint")
     .trigger(Trigger.ProcessingTime("60 seconds")).queryName("myTable")
