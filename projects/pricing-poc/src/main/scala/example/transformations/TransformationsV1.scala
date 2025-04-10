@@ -41,8 +41,8 @@ object TransformationsV1 {
   }
 
   private def transformSku(platform: PlatformType)(df: DataFrame): DataFrame = {
-    df.withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
-      .transform(filterSkuRecommendationResults())
+    //df.withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
+    df.transform(filterSkuRecommendationResults())
       .transform(transformTargetSku(platform))
       .transform(transformMonthlyCost)
   }
@@ -93,9 +93,9 @@ object TransformationsV1 {
       col("timestamp"),
       col("enqueuedTime"),
       struct(
-        //col("recommendationStatus").alias("recommendationStatus"),
         col("targetSku"),
-        col("monthlyCost")
+        col("monthlyCost"),
+        col("monthlyCostOptions")
       ).alias(payloadColName)
     )
   }

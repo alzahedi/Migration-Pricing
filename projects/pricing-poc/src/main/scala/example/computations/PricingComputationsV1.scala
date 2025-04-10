@@ -81,7 +81,7 @@ object PricingComputationsV1 {
 //     resultDF
 //   }
 
-  def computePricingForSqlDB(df: DataFrame): DataFrame = {
+  def computePricingForSqlDB()(df: DataFrame): DataFrame = {
     implicit val spark: SparkSession = df.sparkSession
     val pricingDataFrames = loadPricingDataFrames(PlatformType.AzureSqlDatabase)
     val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
@@ -98,7 +98,7 @@ object PricingComputationsV1 {
 
   }
 
-  def computePricingForSqlMI(df: DataFrame): DataFrame = {
+  def computePricingForSqlMI()(df: DataFrame): DataFrame = {
     implicit val spark: SparkSession = df.sparkSession
     val pricingDataFrames = loadPricingDataFrames(PlatformType.AzureSqlManagedInstance)
     val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
