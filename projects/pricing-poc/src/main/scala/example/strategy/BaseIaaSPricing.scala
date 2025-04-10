@@ -29,7 +29,7 @@
 
 //     var filteredPricingDF = pricingDf
 //       .filter(
-//         !col("SkuName").contains("Spot") && 
+//         !col("SkuName").contains("Spot") &&
 //         !col("SkuName").contains("Low Priority") &&
 //         col("unitOfMeasure") === "1 Hour" &&
 //         col("location") === "US West" &&
@@ -56,21 +56,21 @@
 //         col("SkuRecommendationResults.TargetSku"))
 
 //     val targetSkuExpandedDF = flattenedDf
-//       .select(col("ServerName"), 
-//               col("TargetSku.DataDiskSizes").alias("dataDiskSizes"), 
+//       .select(col("ServerName"),
+//               col("TargetSku.DataDiskSizes").alias("dataDiskSizes"),
 //               col("TargetSku.LogDiskSizes").alias("logDiskSizes"),
-//               col("TargetSku.TempDbDiskSizes").alias("tempDbDiskSizes")        
+//               col("TargetSku.TempDbDiskSizes").alias("tempDbDiskSizes")
 //             )
 
 //     // targetSkuExpandedDF.printSchema()
-//     // targetSkuExpandedDF.show(false)  
+//     // targetSkuExpandedDF.show(false)
 
 //     val explodedDF = targetSkuExpandedDF
 //       .withColumn(
 //         "allDisks",
 //         flatten(array(
-//           coalesce(col("dataDiskSizes"), array()), 
-//           coalesce(col("logDiskSizes"), array()), 
+//           coalesce(col("dataDiskSizes"), array()),
+//           coalesce(col("logDiskSizes"), array()),
 //           coalesce(col("tempDbDiskSizes"), array())
 //         )) // Flatten ensures we get a single array
 //       )
@@ -98,7 +98,7 @@
 
 //     // premiumSSDV2PricesDF.printSchema()
 //     // premiumSSDV2PricesDF.show(false)
-  
+
 //     val premiumSSDV2DF = explodedDF
 //       .filter(col("DiskType") === "PremiumSSDV2")
 //       .join(broadcast(premiumSSDV2PricesDF), lit(true), "left")
@@ -121,7 +121,7 @@
 
 //       val targetAlias = "target"
 //       val pricingAlias = "pricing"
-      
+
 //       val premiumSSDDF = explodedDF.as(targetAlias)
 //         .filter(col("DiskType") === "PremiumSSD")
 //         .join(
@@ -142,7 +142,7 @@
 
 //       // premiumSSDDF.printSchema()
 //      // premiumSSDDF.show(false)
-  
+
 //       val otherDisksDF = explodedDF.as(targetAlias)
 //         .filter(col("DiskType") =!= "PremiumSSDV2" && col("DiskType") =!= "PremiumSSD")
 //         .join(pricingDf.as(pricingAlias)
@@ -158,7 +158,7 @@
 //         )
 //         .agg(sum(col(s"$pricingAlias.retailPrice")).alias("TotalOtherDiskCost"))
 //         //.select(col(s"$pricingAlias.retailPrice").alias("TotalOtherDiskCost"))
-      
+
 //       val premiumSSDV2DF_fixed = premiumSSDV2DF
 //         .withColumn("TotalPremiumSSDV2Cost", coalesce(col("TotalPremiumSSDV2Cost"), lit(0)))
 //         .withColumn("TotalPremiumSSDCost", lit(0)) // Fill missing columns
@@ -182,7 +182,7 @@
 //           sum(col("TotalPremiumSSDV2Cost"))
 //             .plus(sum(col("TotalPremiumSSDCost")))
 //             .plus(sum(col("TotalOtherDiskCost")))
-//             .alias("storageCost") 
+//             .alias("storageCost")
 //       )
 
 //       //finalDF.show()
@@ -201,7 +201,7 @@
 //       .orderBy("RetailPrice")
 //       .limit(1)
 //       .withColumn("meterType", lit("Storage"))
-    
+
 //     premiumSSDV2StorageDF.printSchema()
 //     premiumSSDV2StorageDF.show(false)
 

@@ -8,7 +8,7 @@ import example.constants.PlatformType
 import java.nio.file.Paths
 // import example.strategy.PricingStrategyFactory
 import example.strategy.ReservedProdPaaSPricing
-import example.pricing.PaaSPricing
+import example.pricing.{PaaSPricing, IaaSPricing}
 import org.apache.hadoop.shaded.org.eclipse.jetty.websocket.common.frames
 
 object PricingComputationsV1 {
@@ -108,6 +108,18 @@ object PricingComputationsV1 {
       .transform(PaaSPricing.enrichWithReservedPricing(computeDataFrame, storageDataFrame, "1 Year"))
       .transform(PaaSPricing.enrichWithReservedPricing(computeDataFrame, storageDataFrame, "3 Years"))
       .transform(PaaSPricing.addMonthlyCostOptions())
+  }
+
+  def computePricingForSqlVM()(df: DataFrame): DataFrame = {
+    implicit val spark: SparkSession = df.sparkSession
+    val pricingDataFrames = loadPricingDataFrames(PlatformType.AzureSqlVirtualMachine)
+    val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
+    val storageDataFrame = pricingDataFrames.get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
+    
+    df.transform(IaaSPricing.transformPlatform())
+      .transform(IaaSPricing.enrichWithReservedPricing(computeDataFrame, storageDataFrame, "1 Year"))
+      .transform(IaaSPricing.enrichWithReservedPricing(computeDataFrame, storageDataFrame, "3 Years"))
+      .transform(IaaSPricing.addMonthlyCostOptions())
   }
 
 //   def computePricingForSqlVM(df: DataFrame): DataFrame = {
