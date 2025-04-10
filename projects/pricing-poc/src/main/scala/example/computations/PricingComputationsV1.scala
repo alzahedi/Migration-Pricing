@@ -87,10 +87,14 @@ object PricingComputationsV1 {
     val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
     val storageDataFrame = loadPricingDataFrames(PlatformType.AzureSqlManagedInstance).get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
 
-    df.transform(PaaSPricing.transformPlatformDF())
-      .transform(PaaSPricing.withRIProdCost(computeDataFrame, storageDataFrame, "1 Year"))
-      .transform(PaaSPricing.withRIProdCost(computeDataFrame, storageDataFrame, "3 Years"))
-      .transform(PaaSPricing.withMonthlyCostOptions())
+    df.transform(PaaSPricing.transformPlatform())
+      .transform(PaaSPricing.enrichWithReservedPricing(computeDataFrame, storageDataFrame, "1 Year"))
+      .transform(PaaSPricing.enrichWithReservedPricing(computeDataFrame, storageDataFrame, "3 Years"))
+      .transform(PaaSPricing.addMonthlyCostOptions())
+      
+      // .transform(PaaSPricing.(computeDataFrame, storageDataFrame, "1 Year"))
+      // .transform(PaaSPricing.withRIProdCost(computeDataFrame, storageDataFrame, "3 Years"))
+      // .transform(PaaSPricing.withMonthlyCostOptions())
 
   }
 
@@ -100,10 +104,10 @@ object PricingComputationsV1 {
     val computeDataFrame = pricingDataFrames.get("Compute").getOrElse(throw new RuntimeException(s"Compute pricing data not found"))
     val storageDataFrame = pricingDataFrames.get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
     
-    df.transform(PaaSPricing.transformPlatformDF())
-      .transform(PaaSPricing.withRIProdCost(computeDataFrame, storageDataFrame, "1 Year"))
-      .transform(PaaSPricing.withRIProdCost(computeDataFrame, storageDataFrame, "3 Years"))
-      .transform(PaaSPricing.withMonthlyCostOptions())
+    df.transform(PaaSPricing.transformPlatform())
+      .transform(PaaSPricing.enrichWithReservedPricing(computeDataFrame, storageDataFrame, "1 Year"))
+      .transform(PaaSPricing.enrichWithReservedPricing(computeDataFrame, storageDataFrame, "3 Years"))
+      .transform(PaaSPricing.addMonthlyCostOptions())
   }
 
 //   def computePricingForSqlVM(df: DataFrame): DataFrame = {
