@@ -113,7 +113,7 @@ object StreamDriver extends App {
   val skuDbProcessStream = processStream(skuDbParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationDB)
   val skuMiProcessStream = processStream(skuMiParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationMI)
 
-  val dbPricingData = PricingComputationsV1.computePricingForSqlDB(skuDbProcessStream)
+  //val dbPricingData = PricingComputationsV1.computePricingForSqlDB(skuDbProcessStream)
   val miPricingData = PricingComputationsV1.computePricingForSqlMI(skuMiProcessStream)
 
   // val suitDF = processStream(suitabilityParsedStream, MigrationAssessmentSourceTypes.Suitability)
@@ -161,7 +161,7 @@ object StreamDriver extends App {
   while(true) {
     println("Checking data.....")
     Thread.sleep(1000)
-    spark.sql("SELECT computeCost1Yr, computeCost3Yr, storageCost, monthlyCostOptions FROM myTable").show(10000, true)
+    spark.sql("SELECT computeCost_1Yr, computeCost_3Yr, storageCost, monthlyCostOptions FROM myTable").show(10000, true)
   }
 
   // val serializedDF = outputDF
