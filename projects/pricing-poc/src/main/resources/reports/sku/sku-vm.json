@@ -136,7 +136,17 @@
                                 "MaxIOPS": 120.00
                             }
                         ],
-                        "TempDbDiskSizes": [],
+                        "TempDbDiskSizes": [
+                            {
+                                "Type": "PremiumSSD",
+                                "Redundancy": "LocallyRedundant",
+                                "Size": "P2",
+                                "Caching": "None",
+                                "MaxSizeInGib": 8.00,
+                                "MaxThroughputInMbps": 25.00,
+                                "MaxIOPS": 120.00
+                            }
+                        ],
                         "PredictedDataSizeInMb": 21.94,
                         "PredictedLogSizeInMb": 2.00,
                         "Category": {

@@ -117,8 +117,13 @@ object PricingComputationsV1 {
     val storageDataFrame = pricingDataFrames.get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
     
     df.transform(IaaSPricing.transformPlatform())
-      .transform(IaaSPricing.enrichWithReservedPricing(computeDataFrame, storageDataFrame, "1 Year"))
-      .transform(IaaSPricing.enrichWithReservedPricing(computeDataFrame, storageDataFrame, "3 Years"))
+      .transform(IaaSPricing.enrichWithStoragePricing(storageDataFrame))
+      .transform(IaaSPricing.enrichWithReservedPricing(computeDataFrame, "1 Year"))
+      .transform(IaaSPricing.enrichWithReservedPricing(computeDataFrame, "3 Years"))
+      .transform(IaaSPricing.enrichWithAspProdPricing(computeDataFrame, "1 Year"))
+      .transform(IaaSPricing.enrichWithAspProdPricing(computeDataFrame, "3 Years"))
+      .transform(IaaSPricing.enrichWithAspDevTestPricing(computeDataFrame, "1 Year"))
+      .transform(IaaSPricing.enrichWithAspDevTestPricing(computeDataFrame, "3 Years"))
       .transform(IaaSPricing.addMonthlyCostOptions())
   }
 
