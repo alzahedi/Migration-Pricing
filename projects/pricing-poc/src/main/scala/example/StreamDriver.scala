@@ -117,44 +117,44 @@ object StreamDriver extends App {
   //val dbPricingData = PricingComputationsV1.computePricingForSqlDB(skuDbProcessStream)
   //val miPricingData = PricingComputationsV1.computePricingForSqlMI(skuMiProcessStream)
 
-  val vmPricingData = skuVmProcessStream.transform(PricingComputationsV1.computePricingForSqlVM())
+ //val vmPricingData = skuVmProcessStream.transform(PricingComputationsV1.computePricingForSqlVM())
 
-  // val suitDF = processStream(suitabilityParsedStream, MigrationAssessmentSourceTypes.Suitability)
-  //               .transform(TransformationsV1.transformSuitability)
+  val suitDF = processStream(suitabilityParsedStream, MigrationAssessmentSourceTypes.Suitability)
+                .transform(TransformationsV1.transformSuitability)
   
-  // val skuDbDF = processStream(skuDbParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationDB)
-  //               .transform(PricingComputationsV1.computePricingForSqlDB())
-  //               .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlDatabase, schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationDB)))
+  val skuDbDF = processStream(skuDbParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationDB)
+                .transform(PricingComputationsV1.computePricingForSqlDB())
+                .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlDatabase, schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationDB)))
 
-  // val skuMiDF = processStream(skuMiParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationMI)
-  //               .transform(PricingComputationsV1.computePricingForSqlMI())
-  //               .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlManagedInstance, schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationMI)))
+  val skuMiDF = processStream(skuMiParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationMI)
+                .transform(PricingComputationsV1.computePricingForSqlMI())
+                .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlManagedInstance, schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationMI)))
 
-  // val skuVmDF = processStream(skuVmParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationVM)
-  //               .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlVirtualMachine, schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationVM)))
+  val skuVmDF = processStream(skuVmParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationVM)
+                .transform(PricingComputationsV1.computePricingForSqlVM())
+                .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlVirtualMachine, schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationVM)))
 
-  // suitDF.printSchema()
-  // skuDbDF.printSchema()
-  // skuMiDF.printSchema()
-  // //skuVmDF.printSchema()
+  suitDF.printSchema()
+  skuDbDF.printSchema()
+  skuMiDF.printSchema()
+  skuVmDF.printSchema()
 
-  // spark.conf.set("spark.sql.streaming.join.debug", "true")
-  // val joinedDF = suitDF.as("es")
-  //                 .join(skuDbDF.as("esrasd"), expr(s"""(es.uploadIdentifier == esrasd.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasd.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasd.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
-  //                 .join(skuMiDF.as("esrasm"), expr(s"""(es.uploadIdentifier == esrasm.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasm.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasm.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
-  //                 //.join(skuVmDF.as("esrasv"), expr(s"""(es.uploadIdentifier == esrasv.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasv.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasv.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
-  //                 .drop("type")
-  //                 .drop("timestamp")
-  //                 .drop("uploadIdentifier")
-  //                 //.drop("enqueuedTime")
+  spark.conf.set("spark.sql.streaming.join.debug", "true")
+  val joinedDF = suitDF.as("es")
+                  .join(skuDbDF.as("esrasd"), expr(s"""(es.uploadIdentifier == esrasd.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasd.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasd.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
+                  .join(skuMiDF.as("esrasm"), expr(s"""(es.uploadIdentifier == esrasm.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasm.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasm.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
+                  .join(skuVmDF.as("esrasv"), expr(s"""(es.uploadIdentifier == esrasv.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasv.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasv.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
+                  .drop("type")
+                  .drop("timestamp")
+                  .drop("uploadIdentifier")
+                  //.drop("enqueuedTime")
 
-  // // //joinedDF.printSchema()
   // // val outputDF = processInstanceUpdateEventStream(joinedDF)
-  // joinedDF.printSchema()
+  joinedDF.printSchema()
 
-  vmPricingData.printSchema()
+
   // Process the result, e.g., showing it or saving to a file
-  val query = vmPricingData.writeStream
+  val query = joinedDF.writeStream
     .outputMode("append")
     .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/checkpoint")
     .trigger(Trigger.ProcessingTime("60 seconds")).queryName("myTable")
@@ -164,8 +164,8 @@ object StreamDriver extends App {
   while(true) {
     println("Checking data.....")
     Thread.sleep(1000)
-    spark.sql("SELECT computeCost_1Yr, computeCost_3Yr, monthlyCostOptions FROM myTable").show(10000, true)
-    //spark.sql("SELECT * FROM myTable").show(10000, true)
+    //spark.sql("SELECT computeCost_1Yr, computeCost_3Yr, monthlyCostOptions FROM myTable").show(10000, true)
+    spark.sql("SELECT * FROM myTable").show(10000, true)
   }
 
   // val serializedDF = outputDF

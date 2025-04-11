@@ -89,7 +89,6 @@ object TransformationsV1 {
   private def selectFields(payloadColName: String)(df: DataFrame): DataFrame = {
     df.select(
       col("uploadIdentifier"),
-      col("type"),
       col("timestamp"),
       col("enqueuedTime"),
       struct(
