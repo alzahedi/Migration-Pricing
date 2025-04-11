@@ -149,44 +149,44 @@ object StreamDriver extends App {
                   .drop("uploadIdentifier")
                   //.drop("enqueuedTime")
 
-  // // val outputDF = processInstanceUpdateEventStream(joinedDF)
+  val outputDF = processInstanceUpdateEventStream(joinedDF)
   joinedDF.printSchema()
 
 
   // Process the result, e.g., showing it or saving to a file
-  val query = joinedDF.writeStream
-    .outputMode("append")
-    .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/checkpoint")
-    .trigger(Trigger.ProcessingTime("60 seconds")).queryName("myTable")
-    .format("memory")
-    .start()
+  // val query = joinedDF.writeStream
+  //   .outputMode("append")
+  //   .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/checkpoint")
+  //   .trigger(Trigger.ProcessingTime("60 seconds")).queryName("myTable")
+  //   .format("memory")
+  //   .start()
 
-  while(true) {
-    println("Checking data.....")
-    Thread.sleep(1000)
-    //spark.sql("SELECT computeCost_1Yr, computeCost_3Yr, monthlyCostOptions FROM myTable").show(10000, true)
-    spark.sql("SELECT * FROM myTable").show(10000, true)
-  }
+  // while(true) {
+  //   println("Checking data.....")
+  //   Thread.sleep(1000)
+  //   //spark.sql("SELECT computeCost_1Yr, computeCost_3Yr, monthlyCostOptions FROM myTable").show(10000, true)
+  //   spark.sql("SELECT * FROM myTable").show(10000, true)
+  // }
 
-  // val serializedDF = outputDF
-  // .select(to_json(struct("*")).cast("string").alias("body"))
-  // .selectExpr("CAST(body AS BINARY) AS body")
+  val serializedDF = outputDF
+  .select(to_json(struct("*")).cast("string").alias("body"))
+  .selectExpr("CAST(body AS BINARY) AS body")
 
   // val serializedDF = outputDF
   //   .select(to_json(struct("*")).alias("body"))
   //   .selectExpr("CAST(body AS BINARY) AS body")
 
-  // serializedDF.printSchema()
+  serializedDF.printSchema()
 
-  // println("Starting write to event hub....")
-  // val query = serializedDF
-  //   .writeStream
-  //   .outputMode("append")
-  //   .format("eventhubs")
-  //   .options(outputEventHubConf.toMap)
-  //   .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/eventhub-checkpoint") // Must be a reliable location like DBFS or HDFS
-  //   .start()
-  //   .awaitTermination()
+  println("Starting write to event hub....")
+  val query = serializedDF
+    .writeStream
+    .outputMode("append")
+    .format("eventhubs")
+    .options(outputEventHubConf.toMap)
+    .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/eventhub-checkpoint") // Must be a reliable location like DBFS or HDFS
+    .start()
+    .awaitTermination()
 
   def processStream(inDF: DataFrame, maType: MigrationAssessmentSourceTypes.Value): DataFrame = {
     val jsonPaths: Map[MigrationAssessmentSourceTypes.Value, String] = Map(
@@ -247,6 +247,7 @@ object StreamDriver extends App {
                                             col("azuresqldb_skuRecommendationResults.MonthlyCost.iopsCost").alias("iopsCost"),
                                             col("azuresqldb_skuRecommendationResults.MonthlyCost.TotalCost").alias("totalCost")
                                         ).alias("monthlyCost"),
+                                        col("azuresqldb_skuRecommendationResults.monthlyCostOptions").alias("monthlyCostOptions"),
                                     ).alias("azureSqlDatabase"),
                                     struct(
                                         col("suitability_report_struct.AzureSqlManagedInstance_RecommendationStatus").alias("recommendationStatus"),
@@ -273,6 +274,7 @@ object StreamDriver extends App {
                                             col("azuresqlmi_skuRecommendationResults.MonthlyCost.iopsCost").alias("iopsCost"),
                                             col("azuresqlmi_skuRecommendationResults.MonthlyCost.TotalCost").alias("totalCost")
                                         ).alias("monthlyCost"),
+                                        col("azuresqlmi_skuRecommendationResults.monthlyCostOptions").alias("monthlyCostOptions"),
                                     ).alias("azureSqlManagedInstance"),
                                     struct(
                                         lit("Ready").alias("recommendationStatus"),
@@ -303,6 +305,7 @@ object StreamDriver extends App {
                                             col("azuresqlvm_skuRecommendationResults.MonthlyCost.iopsCost").alias("iopsCost"),
                                             col("azuresqlvm_skuRecommendationResults.MonthlyCost.TotalCost").alias("totalCost")
                                         ).alias("monthlyCost"),
+                                        col("azuresqlvm_skuRecommendationResults.monthlyCostOptions").alias("monthlyCostOptions"),
                                     ).alias("azureSqlVirtualMachine")
                                 ).alias("skuRecommendationResults")
                             ).alias("assessment")
