@@ -37,29 +37,27 @@ object PaaSPricing {
     )
   }
 
-  def enrichWithReservedPricing(pricingDf: DataFrame, storageDf: DataFrame, reservationTerm: String): DataFrame => DataFrame = { platformDf =>
+  def enrichWithStoragePricing(storagePricingDF: DataFrame): DataFrame => DataFrame = { platformDf => 
+      val filteredStorageDf = storagePricingDF
+        .filter(
+          col("location") === "US West" &&
+          col("type") === PricingType.Consumption.toString
+        )
+        .select(col("skuName"), col("retailPrice"))
+      
+      platformDf
+        .join(filteredStorageDf, col("sqlServiceTier") === col("skuName"))
+        .withColumn("storageCost", calculateStorageCost())
+  }
+
+  def enrichWithReservedPricing(pricingDf: DataFrame, reservationTerm: String): DataFrame => DataFrame = { platformDf =>
     val computeCostDf = platformDf
       .join(getMinComputePrice(pricingDf, reservationTerm), Seq("sqlServiceTier", "sqlHardwareType"), "inner")
-      .as("compute")
 
-    val storagePriceDf = storageDf
-      .filter(
-        col("location") === "US West" &&
-        col("type") === PricingType.Consumption.toString
-      )
-      .select(col("skuName"), col("retailPrice"))
-      .as("storage")
-
-    computeCostDf
-      .join(
-        storagePriceDf,
-        col("compute.sqlServiceTier") === col("storage.skuName"),
-        "inner"
-      )
-      .withColumn("storageCost", calculateStorageCost())
+    computeCostDf      
       .withColumn(s"computeCost_${reservationTermToColName(reservationTerm)}",
         computeMonthlyCost(
-          col("compute.computeSize") * col(s"compute.minRetailPrice_$reservationTerm"),
+          col("computeSize") * col(s"minRetailPrice_$reservationTerm"),
           reservationTermToFactor(reservationTerm)
         )
       )
@@ -92,10 +90,10 @@ object PaaSPricing {
 
   private def calculateStorageCost(): Column = {
     bround(
-      when(col("compute.targetPlatform") === PlatformType.AzureSqlManagedInstance.toString,
-        col("storage.retailPrice") * greatest(col("compute.storageMaxSizeInGb") - 32, lit(0))
+      when(col("targetPlatform") === PlatformType.AzureSqlManagedInstance.toString,
+        col("retailPrice") * greatest(col("storageMaxSizeInGb") - 32, lit(0))
       ).otherwise(
-        col("storage.retailPrice") * (col("compute.storageMaxSizeInGb") * 1.3)
+        col("retailPrice") * (col("storageMaxSizeInGb") * 1.3)
       ),
       2
     )

@@ -20,8 +20,9 @@ object PricingComputationsV1 {
     val storageDataFrame = loadPricingDataFrames(PlatformType.AzureSqlManagedInstance).get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
 
     df.transform(PaaSPricing.transformPlatform())
-      .transform(PaaSPricing.enrichWithReservedPricing(computeDataFrame, storageDataFrame, "1 Year"))
-      .transform(PaaSPricing.enrichWithReservedPricing(computeDataFrame, storageDataFrame, "3 Years"))
+      .transform(PaaSPricing.enrichWithStoragePricing(storageDataFrame))
+      .transform(PaaSPricing.enrichWithReservedPricing(computeDataFrame, "1 Year"))
+      .transform(PaaSPricing.enrichWithReservedPricing(computeDataFrame, "3 Years"))
       .transform(PaaSPricing.addMonthlyCostOptions())
   }
 
@@ -32,8 +33,9 @@ object PricingComputationsV1 {
     val storageDataFrame = pricingDataFrames.get("Storage").getOrElse(throw new RuntimeException(s"Storage pricing data not found"))
     
     df.transform(PaaSPricing.transformPlatform())
-      .transform(PaaSPricing.enrichWithReservedPricing(computeDataFrame, storageDataFrame, "1 Year"))
-      .transform(PaaSPricing.enrichWithReservedPricing(computeDataFrame, storageDataFrame, "3 Years"))
+      .transform(PaaSPricing.enrichWithStoragePricing(storageDataFrame))
+      .transform(PaaSPricing.enrichWithReservedPricing(computeDataFrame, "1 Year"))
+      .transform(PaaSPricing.enrichWithReservedPricing(computeDataFrame, "3 Years"))
       .transform(PaaSPricing.addMonthlyCostOptions())
   }
 
