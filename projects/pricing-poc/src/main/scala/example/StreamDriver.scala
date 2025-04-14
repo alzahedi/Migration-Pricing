@@ -11,9 +11,8 @@ import java.nio.file.Paths
 import org.apache.spark.sql.streaming.Trigger
 import example.reader.JsonReader
 import example.constants.{MigrationAssessmentSourceTypes, MigrationAssessmentConstants}
-import example.transformations.TransformationsV1
 import example.constants.PlatformType
-import example.computations.PricingComputationsV1
+import example.computations.PricingComputations
 
 object StreamDriver extends App {
 
@@ -120,24 +119,20 @@ object StreamDriver extends App {
  //val vmPricingData = skuVmProcessStream.transform(PricingComputationsV1.computePricingForSqlVM())
 
   val suitDF = processStream(suitabilityParsedStream, MigrationAssessmentSourceTypes.Suitability)
-                .transform(TransformationsV1.transformSuitability)
   
   val skuDbDF = processStream(skuDbParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationDB)
-                .transform(PricingComputationsV1.computePricingForSqlDB())
-                .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlDatabase, schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationDB)))
+                .transform(PricingComputations.computePricingForSqlDB())
 
   val skuMiDF = processStream(skuMiParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationMI)
-                .transform(PricingComputationsV1.computePricingForSqlMI())
-                .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlManagedInstance, schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationMI)))
+                .transform(PricingComputations.computePricingForSqlMI())
 
   val skuVmDF = processStream(skuVmParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationVM)
-                .transform(PricingComputationsV1.computePricingForSqlVM())
-                .transform(TransformationsV1.processSkuData(PlatformType.AzureSqlVirtualMachine, schemaStructNames(MigrationAssessmentSourceTypes.SkuRecommendationVM)))
+                .transform(PricingComputations.computePricingForSqlVM())
 
-  suitDF.printSchema()
-  skuDbDF.printSchema()
-  skuMiDF.printSchema()
-  skuVmDF.printSchema()
+  // suitDF.printSchema()
+  // skuDbDF.printSchema()
+  // skuMiDF.printSchema()
+  // skuVmDF.printSchema()
 
   spark.conf.set("spark.sql.streaming.join.debug", "true")
   val joinedDF = suitDF.as("es")
@@ -150,7 +145,7 @@ object StreamDriver extends App {
                   //.drop("enqueuedTime")
 
   val outputDF = processInstanceUpdateEventStream(joinedDF)
-  joinedDF.printSchema()
+  outputDF.printSchema()
 
 
   // Process the result, e.g., showing it or saving to a file
@@ -177,7 +172,6 @@ object StreamDriver extends App {
   //   .selectExpr("CAST(body AS BINARY) AS body")
 
   serializedDF.printSchema()
-
   println("Starting write to event hub....")
   val query = serializedDF
     .writeStream
@@ -209,10 +203,13 @@ object StreamDriver extends App {
       inDF: DataFrame
   ): DataFrame = {
     inDF.withColumn("assessmentUploadTime", col("es.enqueuedTime"))
-        .withColumn("serverAssessments", col("suitability_report_struct.ServerAssessments"))
-        .withColumn("azuresqlvm_skuRecommendationResults", col("sku_recommendation_azuresqlvm_sku_recommendation_report_struct"))
-        .withColumn("azuresqldb_skuRecommendationResults", col("sku_recommendation_azuresqldb_sku_recommendation_report_struct"))
-        .withColumn("azuresqlmi_skuRecommendationResults", col("sku_recommendation_azuresqlmi_sku_recommendation_report_struct"))
+        .withColumn("serverAssessments", col("es.Servers.ServerAssessments"))
+        .withColumn("azuresqlvm_skuRecommendationForServers", col("esrasv.SkuRecommendationForServers"))
+        .withColumn("azuresqldb_skuRecommendationForServers", col("esrasd.SkuRecommendationForServers"))
+        .withColumn("azuresqlmi_skuRecommendationForServers", col("esrasm.SkuRecommendationForServers"))
+        .withColumn("azuresqlvm_skuRecommendationResults", element_at(col("azuresqlvm_skuRecommendationForServers.SkuRecommendationResults"), 1))
+        .withColumn("azuresqldb_skuRecommendationResults", element_at(col("azuresqldb_skuRecommendationForServers.SkuRecommendationResults"), 1))
+        .withColumn("azuresqlmi_skuRecommendationResults", element_at(col("azuresqlmi_skuRecommendationForServers.SkuRecommendationResults"), 1))
         .withColumn("arm_resource",
           to_json(
                   struct(
@@ -223,9 +220,8 @@ object StreamDriver extends App {
                                 col("serverAssessments"),
                                 struct(
                                     struct(
-                                        col("suitability_report_struct.AzureSqlDatabase_RecommendationStatus").alias("recommendationStatus"),
-                                        col("suitability_report_struct.AzureSqlDatabase_NumberOfServerBlockerIssues").alias("numberOfServerBlockerIssues"),
-                                        //element_at(col("suitability_report_struct.Servers.TargetReadinesses.AzureSqlDatabase.NumberOfServerBlockerIssues"), 1).alias("numberOfServerBlockerIssues"),
+                                      element_at(col("es.Servers.TargetReadinesses.AzureSqlDatabase.RecommendationStatus"), 1).alias("recommendationStatus"),
+                                      element_at(col("es.Servers.TargetReadinesses.AzureSqlDatabase.NumberOfServerBlockerIssues"), 1).alias("numberOfServerBlockerIssues"),
                                         struct(
                                             struct(
                                                 col("azuresqldb_skuRecommendationResults.TargetSku.Category.ComputeTier").alias("computeTier"),
@@ -247,12 +243,11 @@ object StreamDriver extends App {
                                             col("azuresqldb_skuRecommendationResults.MonthlyCost.iopsCost").alias("iopsCost"),
                                             col("azuresqldb_skuRecommendationResults.MonthlyCost.TotalCost").alias("totalCost")
                                         ).alias("monthlyCost"),
-                                        col("azuresqldb_skuRecommendationResults.monthlyCostOptions").alias("monthlyCostOptions"),
+                                        col("esrasd.monthlyCostOptions").alias("monthlyCostOptions"),
                                     ).alias("azureSqlDatabase"),
                                     struct(
-                                        col("suitability_report_struct.AzureSqlManagedInstance_RecommendationStatus").alias("recommendationStatus"),
-                                        col("suitability_report_struct.AzureSqlManagedInstance_NumberOfServerBlockerIssues").alias("numberOfServerBlockerIssues"),
-                                        //element_at(col("suitability_report_struct.Servers.TargetReadinesses.AzureSqlManagedInstance.NumberOfServerBlockerIssues"), 1).alias("numberOfServerBlockerIssues"),
+                                        element_at(col("es.Servers.TargetReadinesses.AzureSqlManagedInstance.RecommendationStatus"), 1).alias("recommendationStatus"),
+                                        element_at(col("es.Servers.TargetReadinesses.AzureSqlManagedInstance.NumberOfServerBlockerIssues"), 1).alias("numberOfServerBlockerIssues"),
                                         struct(
                                             struct(
                                                 col("azuresqlmi_skuRecommendationResults.TargetSku.Category.ComputeTier").alias("computeTier"),
@@ -274,7 +269,7 @@ object StreamDriver extends App {
                                             col("azuresqlmi_skuRecommendationResults.MonthlyCost.iopsCost").alias("iopsCost"),
                                             col("azuresqlmi_skuRecommendationResults.MonthlyCost.TotalCost").alias("totalCost")
                                         ).alias("monthlyCost"),
-                                        col("azuresqlmi_skuRecommendationResults.monthlyCostOptions").alias("monthlyCostOptions"),
+                                        col("esrasm.monthlyCostOptions").alias("monthlyCostOptions"),
                                     ).alias("azureSqlManagedInstance"),
                                     struct(
                                         lit("Ready").alias("recommendationStatus"),
@@ -305,7 +300,7 @@ object StreamDriver extends App {
                                             col("azuresqlvm_skuRecommendationResults.MonthlyCost.iopsCost").alias("iopsCost"),
                                             col("azuresqlvm_skuRecommendationResults.MonthlyCost.TotalCost").alias("totalCost")
                                         ).alias("monthlyCost"),
-                                        col("azuresqlvm_skuRecommendationResults.monthlyCostOptions").alias("monthlyCostOptions"),
+                                        col("esrasv.monthlyCostOptions").alias("monthlyCostOptions"),
                                     ).alias("azureSqlVirtualMachine")
                                 ).alias("skuRecommendationResults")
                             ).alias("assessment")
@@ -315,8 +310,5 @@ object StreamDriver extends App {
             )
           )   
         .select("arm_resource")
-    
-    // updatedDF.printSchema()
-    // updatedDF
   }
 }

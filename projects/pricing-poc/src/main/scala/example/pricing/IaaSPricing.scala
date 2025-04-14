@@ -128,8 +128,8 @@ object IaaSPricing {
   // Helpers
   private def reservationTermToColName(term: String): String = term.replaceAll("[^A-Za-z0-9]", "")
   private def reservationTermToFactor(term: String): Double = term match {
-    case "1 Yr" => 12.0
-    case "3 Yr" => 36.0
+    case "1 Year" => 12.0
+    case "3 Years" => 36.0
     case _      => 12.0
   }
 
