@@ -12,7 +12,7 @@ import org.apache.spark.sql.streaming.Trigger
 import example.reader.JsonReader
 import example.constants.{MigrationAssessmentSourceTypes, MigrationAssessmentConstants}
 import example.constants.PlatformType
-import example.computations.PricingComputations
+import example.transformers.PricingTransformer
 
 object StreamDriver extends App {
 
@@ -20,7 +20,7 @@ object StreamDriver extends App {
   val log4jConfigPath = Paths.get(System.getProperty("user.dir"), "log4j2.properties").toString
   System.setProperty("log4j.configurationFile", s"file://$log4jConfigPath")
 
-  val spark = SparkSession.builder()
+  implicit val spark = SparkSession.builder()
     .appName("EventHubReader")
     .master("local[*]") 
     .getOrCreate()
@@ -121,13 +121,13 @@ object StreamDriver extends App {
   val suitDF = processStream(suitabilityParsedStream, MigrationAssessmentSourceTypes.Suitability)
   
   val skuDbDF = processStream(skuDbParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationDB)
-                .transform(PricingComputations.computePricingForSqlDB())
+                .transform(PricingTransformer(PlatformType.AzureSqlDatabase).transform)
 
   val skuMiDF = processStream(skuMiParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationMI)
-                .transform(PricingComputations.computePricingForSqlMI())
+                .transform(PricingTransformer(PlatformType.AzureSqlManagedInstance).transform)
 
   val skuVmDF = processStream(skuVmParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationVM)
-                .transform(PricingComputations.computePricingForSqlVM())
+                .transform(PricingTransformer(PlatformType.AzureSqlVirtualMachine).transform)
 
   // suitDF.printSchema()
   // skuDbDF.printSchema()
