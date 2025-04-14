@@ -1,4 +1,4 @@
-package example.azure
+package example.azuredata
 
 import com.azure.identity.DefaultAzureCredentialBuilder
 import com.azure.storage.blob.{BlobContainerClient, BlobServiceClientBuilder}
@@ -54,7 +54,8 @@ object BlobService {
 
     containerClient
       .listBlobs()
-      .asScala.toList
+      .asScala
+      .toList
       .filter(blob => blob.getName.endsWith(".json")) // Only JSON files
       .map(_.getName)
       .toList

@@ -2,7 +2,7 @@ package example.reader
 
 import scala.util.{Failure, Success, Try}
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import example.azure.BlobService
+import example.azuredata.BlobService
 import example.constants.PlatformType
 
 object BlobReader {

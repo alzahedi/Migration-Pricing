@@ -13,6 +13,11 @@ import example.reader.JsonReader
 import example.constants.{MigrationAssessmentSourceTypes, MigrationAssessmentConstants}
 import example.constants.PlatformType
 import example.transformers.PricingTransformer
+import example.azuredata.eventhub.EventHubEntraAuthCallback
+import example.azuredata.eventhub.ReadEventHubFeedFormat
+import example.azuredata.eventhub.EventHubConnection
+import example.azuredata.security.TokenCredentialProvider
+import example.azuredata.eventhub.EventHubStreamReader
 
 object StreamDriver extends App {
 
@@ -36,51 +41,44 @@ object StreamDriver extends App {
   val skuMiConsumerGroup = "sku-sql-mi-instance-spark"
   val skuVmConsumerGroup = "sku-sql-vm-instance-spark"
 
-  // Azure CLI Authentication
-  val credential = new AzureCliCredentialBuilder().build()
-  val tokenContext = new TokenRequestContext().addScopes("https://eventhubs.azure.net/.default")
-
-  val aadAuthCallback = new AadAuthenticationCallback {
-    override def authority: String = "https://login.microsoftonline.com/"
-    override def acquireToken(audience: String, authority: String, state: Any): CompletableFuture[String] = {
-      CompletableFuture.supplyAsync(() => credential.getToken(tokenContext).block().getToken)
-    }
-  }
+  // Create auth callback
+  val authCallback = EventHubEntraAuthCallback(TokenCredentialProvider.getAzureCliCredential)
+  val eventHubConnection = EventHubConnection(eventHubNamespace, eventHubName)
   
-  def createEventHubConf(consumerGroup: String): EventHubsConf = {
-    EventHubsConf(s"Endpoint=sb://$eventHubNamespace.servicebus.windows.net/;EntityPath=$eventHubName")
-      .setAadAuthCallback(aadAuthCallback)
-      .setConsumerGroup(consumerGroup)
-      .setStartingPosition(EventPosition.fromStartOfStream)
-  }
+  val suitabilityEventHubFeed = ReadEventHubFeedFormat(
+                                  eventHubConnection = eventHubConnection, 
+                                  specifiedConsumerGroup = suitabilityConsumerGroup, 
+                                  entraCallback = authCallback
+                                )
+
+  val skuDbEventHubFeed = ReadEventHubFeedFormat(
+                            eventHubConnection = eventHubConnection,
+                            specifiedConsumerGroup = skuDbConsumerGroup,
+                            entraCallback = authCallback
+                          )
+
+  val skuMiEventHubFeed = ReadEventHubFeedFormat(
+                            eventHubConnection = eventHubConnection,
+                            specifiedConsumerGroup = skuMiConsumerGroup,
+                            entraCallback = authCallback
+                          )
+
+  val skuVmEventHubFeed = ReadEventHubFeedFormat(
+                            eventHubConnection = eventHubConnection,
+                            specifiedConsumerGroup = skuVmConsumerGroup,
+                            entraCallback = authCallback
+                          )
+
+
 
   val outputEventHubConf = EventHubsConf(s"Endpoint=sb://$eventHubNamespace.servicebus.windows.net/;EntityPath=$outputEventHubName")
-    .setAadAuthCallback(aadAuthCallback)
+    .setAadAuthCallback(authCallback)
 
-  val suitabilityEventHubsConf = createEventHubConf(suitabilityConsumerGroup)
-  val skuDbEventHubsConf = createEventHubConf(skuDbConsumerGroup)
-  val skuMiEventHubsConf = createEventHubConf(skuMiConsumerGroup)
-  val skuVmEventHubsConf = createEventHubConf(skuVmConsumerGroup)
+  val suitabilityEventStream = EventHubStreamReader(suitabilityEventHubFeed).read()
+  val skuDbEventStream = EventHubStreamReader(skuDbEventHubFeed).read()
+  val skuMiEventStream = EventHubStreamReader(skuMiEventHubFeed).read()
+  val skuVmEventStream = EventHubStreamReader(skuVmEventHubFeed).read()
 
-  val suitabilityEventStream = spark.readStream
-  .format("eventhubs")
-  .options(suitabilityEventHubsConf.toMap)
-  .load()
-
-  val skuDbEventStream = spark.readStream
-    .format("eventhubs")
-    .options(skuDbEventHubsConf.toMap)
-    .load()
-
-  val skuMiEventStream = spark.readStream
-    .format("eventhubs")
-    .options(skuMiEventHubsConf.toMap)
-    .load()
-
-  val skuVmEventStream = spark.readStream
-    .format("eventhubs")
-    .options(skuVmEventHubsConf.toMap)
-    .load()
 
   val eventSchema = StructType(Seq(
     StructField("uploadIdentifier", StringType, nullable = false),
@@ -109,15 +107,6 @@ object StreamDriver extends App {
   val skuMiParsedStream = parseStream(skuMiEventStream)
   val skuVmParsedStream = parseStream(skuVmEventStream)
 
-  //val skuDbProcessStream = processStream(skuDbParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationDB)
-  // val skuMiProcessStream = processStream(skuMiParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationMI)
-  val skuVmProcessStream = processStream(skuVmParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationVM)
-
-  //val dbPricingData = PricingComputationsV1.computePricingForSqlDB(skuDbProcessStream)
-  //val miPricingData = PricingComputationsV1.computePricingForSqlMI(skuMiProcessStream)
-
- //val vmPricingData = skuVmProcessStream.transform(PricingComputationsV1.computePricingForSqlVM())
-
   val suitDF = processStream(suitabilityParsedStream, MigrationAssessmentSourceTypes.Suitability)
   
   val skuDbDF = processStream(skuDbParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationDB)
@@ -129,10 +118,6 @@ object StreamDriver extends App {
   val skuVmDF = processStream(skuVmParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationVM)
                 .transform(PricingTransformer(PlatformType.AzureSqlVirtualMachine).transform)
 
-  // suitDF.printSchema()
-  // skuDbDF.printSchema()
-  // skuMiDF.printSchema()
-  // skuVmDF.printSchema()
 
   spark.conf.set("spark.sql.streaming.join.debug", "true")
   val joinedDF = suitDF.as("es")
@@ -142,7 +127,6 @@ object StreamDriver extends App {
                   .drop("type")
                   .drop("timestamp")
                   .drop("uploadIdentifier")
-                  //.drop("enqueuedTime")
 
   val outputDF = processInstanceUpdateEventStream(joinedDF)
   outputDF.printSchema()
