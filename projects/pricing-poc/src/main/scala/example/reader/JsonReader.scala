@@ -1,29 +1,16 @@
 package example.reader
+
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.types._
 
-object JsonReader {
-  def readJson(spark: SparkSession, filePath: String): DataFrame = {
+class JsonReader(filePath: String, spark: SparkSession) extends DataReader {
+  override def read(): DataFrame = {
     spark.read.option("multiline", "true").json(filePath)
   }
+}
 
-  def readJsonWithSchema(
-      spark: SparkSession,
-      filePath: String,
-      schema: StructType
-  ) = {
-    spark.read.option("multiline", "true").schema(schema).json(filePath)
+object JsonReader{
+  def apply(filePath: String, spark: SparkSession): JsonReader = {
+    new JsonReader(filePath, spark)
   }
-
-  def readJsonWithSchemaInferred(
-      spark: SparkSession,
-      payloadFilePath: String,
-      schemaSampleFilePath: String
-  ): DataFrame = spark.read.option("multiline", "true")
-                      .schema(
-                        spark.read.option("multiline", "true")
-                             .json(schemaSampleFilePath)
-                             .schema
-                       )
-                      .json(payloadFilePath)
 }

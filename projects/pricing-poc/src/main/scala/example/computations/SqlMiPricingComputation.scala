@@ -7,9 +7,8 @@ import example.pricing.PaaSPricing
 
 class SqlMiPricingComputation extends PricingComputation {
   override def compute(df: DataFrame)(implicit spark: SparkSession): DataFrame = {
-    val pricing = PricingDataLoader.load(PlatformType.AzureSqlManagedInstance)
-    val computeDF = pricing.getOrElse("Compute", throw new RuntimeException("Compute pricing missing"))
-    val storageDF = pricing.getOrElse("Storage", throw new RuntimeException("Storage pricing missing"))
+    val computeDF = PricingDataLoader(PlatformType.AzureSqlManagedInstance, "Compute").load()
+    val storageDF = PricingDataLoader(PlatformType.AzureSqlManagedInstance, "Storage").load()
 
     df.transform(PaaSPricing.transformPlatform())
       .transform(PaaSPricing.enrichWithStoragePricing(storageDF))

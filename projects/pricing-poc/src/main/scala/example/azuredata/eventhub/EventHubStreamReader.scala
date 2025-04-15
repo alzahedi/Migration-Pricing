@@ -2,9 +2,7 @@ package example.azuredata.eventhub
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-class EventHubStreamReader(feed: EventHubFeedFormat)(implicit
-    spark: SparkSession
-) {
+class EventHubStreamReader(feed: EventHubFeedFormat)(implicit spark: SparkSession) {
   def read(): DataFrame = {
     spark.readStream
       .format("eventhubs")
@@ -14,8 +12,6 @@ class EventHubStreamReader(feed: EventHubFeedFormat)(implicit
 }
 
 object EventHubStreamReader {
-  def apply(feed: EventHubFeedFormat)(implicit
-      spark: SparkSession
-  ): EventHubStreamReader =
+  def apply(feed: EventHubFeedFormat)(implicit spark: SparkSession): EventHubStreamReader =
     new EventHubStreamReader(feed)
 }

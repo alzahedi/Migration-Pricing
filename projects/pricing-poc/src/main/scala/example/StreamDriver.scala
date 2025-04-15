@@ -173,7 +173,7 @@ object StreamDriver extends App {
       MigrationAssessmentSourceTypes.SkuRecommendationMI -> Paths.get(reportsDirPath, "sku", "sku-mi.json").toString,
       MigrationAssessmentSourceTypes.SkuRecommendationVM -> Paths.get(reportsDirPath, "sku", "sku-vm.json").toString
     )
-    val schema = JsonReader.readJson(spark, jsonPaths(maType)).schema
+    val schema = JsonReader(jsonPaths(maType), spark).read().schema
 
     inDF.filter($"type" === maType.toString)
         .select(col("*"), from_json(col("body"), schema).as("body_struct"))

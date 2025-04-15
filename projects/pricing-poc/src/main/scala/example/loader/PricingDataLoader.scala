@@ -5,8 +5,10 @@ import java.nio.file.Paths
 import example.constants.PlatformType
 import example.reader.JsonReader
 
-object PricingDataLoader {
-  def load(platformType: PlatformType)(implicit spark: SparkSession): Map[String, DataFrame] = {
+
+class PricingDataLoader(platformType: PlatformType, category: String)(implicit spark: SparkSession) extends DataLoader {
+
+  override def load(): DataFrame = {
     val fileMappings: Map[PlatformType, Map[String, String]] = Map(
       PlatformType.AzureSqlDatabase -> Map("Compute" -> "SQL_DB_Compute.json", "Storage" -> "SQL_DB_Storage.json"),
       PlatformType.AzureSqlManagedInstance -> Map("Compute" -> "SQL_MI_Compute.json", "Storage" -> "SQL_MI_Storage.json"),
@@ -14,13 +16,20 @@ object PricingDataLoader {
     )
 
     val basePath = Paths.get(System.getProperty("user.dir"), "src", "main", "resources", "pricing").toString
-    val fileMapping = fileMappings.getOrElse(platformType, Map.empty)
 
-    fileMapping.map { case (category, fileName) =>
-      val filePath = s"$basePath/$fileName"
-      val rawDF = JsonReader.readJson(spark, filePath)
-      val contentDF = rawDF.selectExpr("explode(Content) as Content").select("Content.*")
-      category -> contentDF
-    }
+    val fileName = fileMappings
+      .get(platformType)
+      .flatMap(_.get(category))
+      .getOrElse(throw new IllegalArgumentException(s"No file found for platform: $platformType and category: $category"))
+
+    val filePath = s"$basePath/$fileName"
+    val rawDF = JsonReader(filePath, spark).read()
+    rawDF.selectExpr("explode(Content) as Content").select("Content.*")
+  }
+}
+
+object PricingDataLoader {
+  def apply(platformType: PlatformType, category: String)(implicit spark: SparkSession) : PricingDataLoader = {
+    new PricingDataLoader(platformType, category)
   }
 }
