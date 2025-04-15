@@ -7,10 +7,18 @@ import example.constants.MigrationAssessmentSourceTypes
 import example.constants.MigrationAssessmentConstants
 import example.reader.JsonReader
 import java.nio.file.Paths
+import example.constants.PlatformType
+import example.computations.{
+  PricingComputation,
+  SqlDbPricingComputation,
+  SqlMiPricingComputation,
+  SqlVmPricingComputation
+}
 
 class MigrationAssessmentTransformer(
     resourceType: MigrationAssessmentSourceTypes.Value,
-    spark: SparkSession
+    spark: SparkSession,
+    platformType: PlatformType = null
 ) extends DataTransformer {
 
   override def transform(df: DataFrame): DataFrame = {
@@ -19,7 +27,8 @@ class MigrationAssessmentTransformer(
       case MigrationAssessmentSourceTypes.Suitability         |
            MigrationAssessmentSourceTypes.SkuRecommendationDB |
            MigrationAssessmentSourceTypes.SkuRecommendationMI | 
-           MigrationAssessmentSourceTypes.SkuRecommendationVM    => processTypedEventHubStream(df) 
+           MigrationAssessmentSourceTypes.SkuRecommendationVM    => processTypedEventHubStream(df)
+      case MigrationAssessmentSourceTypes.PricingComputation     => processPricingComputation(df)
     }
   }
 
@@ -35,6 +44,19 @@ class MigrationAssessmentTransformer(
       .select(from_json(col("message"), eventSchema).as("data"), col("enqueuedTime"))
       .select("data.*", "enqueuedTime")
       .withColumn("timestamp", current_timestamp())
+  }
+
+  private def processPricingComputation(df: DataFrame): DataFrame = {
+    val computation: PricingComputation = platformType match {
+      case PlatformType.AzureSqlDatabase        => new SqlDbPricingComputation(spark)
+      case PlatformType.AzureSqlManagedInstance => new SqlMiPricingComputation(spark)
+      case PlatformType.AzureSqlVirtualMachine  => new SqlVmPricingComputation(spark)
+      case _ =>
+        throw new UnsupportedOperationException(
+          s"Unsupported platform: $platformType"
+        )
+    }
+    computation.compute(df)
   }
 
   private def processTypedEventHubStream(df: DataFrame): DataFrame = {
@@ -57,7 +79,7 @@ class MigrationAssessmentTransformer(
 }
 
 object MigrationAssessmentTransformer {
-  def apply(resourceType: MigrationAssessmentSourceTypes.Value, spark: SparkSession): MigrationAssessmentTransformer = {
-    new MigrationAssessmentTransformer(resourceType, spark)
+  def apply(resourceType: MigrationAssessmentSourceTypes.Value, spark: SparkSession, platformType: PlatformType = null): MigrationAssessmentTransformer = {
+    new MigrationAssessmentTransformer(resourceType, spark, platformType)
   }
 }
