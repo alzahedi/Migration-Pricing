@@ -4,6 +4,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import java.nio.file.Paths
 import example.constants.PlatformType
 import example.reader.JsonReader
+import example.reader.BlobReader
 
 
 class PricingDataLoader(platformType: PlatformType, category: String, spark: SparkSession) extends DataLoader {
@@ -15,16 +16,12 @@ class PricingDataLoader(platformType: PlatformType, category: String, spark: Spa
       PlatformType.AzureSqlVirtualMachine -> Map("Compute" -> "SQL_VM_Compute.json", "Storage" -> "SQL_VM_Storage.json")
     )
 
-    val basePath = Paths.get(System.getProperty("user.dir"), "src", "main", "resources", "pricing").toString
-
     val fileName = fileMappings
       .get(platformType)
       .flatMap(_.get(category))
       .getOrElse(throw new IllegalArgumentException(s"No file found for platform: $platformType and category: $category"))
 
-    val filePath = s"$basePath/$fileName"
-    val rawDF = JsonReader(filePath, spark).read()
-    rawDF.selectExpr("explode(Content) as Content").select("Content.*")
+    BlobReader(fileName, spark).read()
   }
 }
 
