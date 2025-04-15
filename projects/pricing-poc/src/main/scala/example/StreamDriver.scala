@@ -8,7 +8,6 @@ import org.apache.spark.sql.streaming.Trigger
 import example.reader.JsonReader
 import example.constants.{MigrationAssessmentSourceTypes, MigrationAssessmentConstants}
 import example.constants.PlatformType
-import example.transformers.PricingTransformer
 import example.eventhub.EventHubEntraAuthCallback
 import example.eventhub.ReadEventHubFeedFormat
 import example.eventhub.EventHubConnection
@@ -97,13 +96,23 @@ object StreamDriver extends App {
     .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlVirtualMachine).transform)
 
   spark.conf.set("spark.sql.streaming.join.debug", "true")
-  val joinedDF = suitDF.as("es")
-                  .join(skuDbDF.as("esrasd"), expr(s"""(es.uploadIdentifier == esrasd.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasd.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasd.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
-                  .join(skuMiDF.as("esrasm"), expr(s"""(es.uploadIdentifier == esrasm.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasm.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasm.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
-                  .join(skuVmDF.as("esrasv"), expr(s"""(es.uploadIdentifier == esrasv.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasv.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasv.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
-                  .drop("type")
-                  .drop("timestamp")
-                  .drop("uploadIdentifier")
+  val joinedDF = suitDF.transform(
+                  MigrationAssessmentTransformer(
+                    resourceType = MigrationAssessmentSourceTypes.FullAssessment, 
+                    spark = spark, 
+                    skuDbDF = skuDbDF, 
+                    skuMiDF = skuMiDF, 
+                    skuVmDF = skuVmDF
+                  ).transform
+                )
+
+  // val joinedDF = suitDF.as("es")
+  //                 .join(skuDbDF.as("esrasd"), expr(s"""(es.uploadIdentifier == esrasd.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasd.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasd.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
+  //                 .join(skuMiDF.as("esrasm"), expr(s"""(es.uploadIdentifier == esrasm.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasm.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasm.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
+  //                 .join(skuVmDF.as("esrasv"), expr(s"""(es.uploadIdentifier == esrasv.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasv.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasv.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
+  //                 .drop("type")
+  //                 .drop("timestamp")
+  //                 .drop("uploadIdentifier")
 
   val outputDF = processInstanceUpdateEventStream(joinedDF)
   outputDF.printSchema()

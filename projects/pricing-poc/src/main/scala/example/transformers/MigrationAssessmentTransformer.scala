@@ -18,7 +18,10 @@ import example.computations.{
 class MigrationAssessmentTransformer(
     resourceType: MigrationAssessmentSourceTypes.Value,
     spark: SparkSession,
-    platformType: PlatformType = null
+    platformType: PlatformType = null,
+    skuDbDF: DataFrame = null,
+    skuMiDF: DataFrame = null,
+    skuVmDF: DataFrame = null
 ) extends DataTransformer {
 
   override def transform(df: DataFrame): DataFrame = {
@@ -29,7 +32,18 @@ class MigrationAssessmentTransformer(
            MigrationAssessmentSourceTypes.SkuRecommendationMI | 
            MigrationAssessmentSourceTypes.SkuRecommendationVM    => processTypedEventHubStream(df)
       case MigrationAssessmentSourceTypes.PricingComputation     => processPricingComputation(df)
+      case MigrationAssessmentSourceTypes.FullAssessment         => processFullAssessment(df)
     }
+  }
+
+  private def processFullAssessment(df: DataFrame): DataFrame = {
+    df.as("es")
+      .join(skuDbDF.as("esrasd"), expr(s"""(es.uploadIdentifier == esrasd.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasd.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasd.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
+      .join(skuMiDF.as("esrasm"), expr(s"""(es.uploadIdentifier == esrasm.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasm.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasm.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
+      .join(skuVmDF.as("esrasv"), expr(s"""(es.uploadIdentifier == esrasv.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasv.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasv.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
+      .drop("type")
+      .drop("timestamp")
+      .drop("uploadIdentifier")
   }
 
   private def processRawEventHubStream(df: DataFrame): DataFrame = {
@@ -79,7 +93,14 @@ class MigrationAssessmentTransformer(
 }
 
 object MigrationAssessmentTransformer {
-  def apply(resourceType: MigrationAssessmentSourceTypes.Value, spark: SparkSession, platformType: PlatformType = null): MigrationAssessmentTransformer = {
-    new MigrationAssessmentTransformer(resourceType, spark, platformType)
+  def apply(
+    resourceType: MigrationAssessmentSourceTypes.Value, 
+    spark: SparkSession, 
+    platformType: PlatformType = null,
+    skuDbDF: DataFrame = null,
+    skuMiDF: DataFrame = null,
+    skuVmDF: DataFrame = null
+): MigrationAssessmentTransformer = {
+    new MigrationAssessmentTransformer(resourceType, spark, platformType, skuDbDF, skuMiDF, skuVmDF)
   }
 }
