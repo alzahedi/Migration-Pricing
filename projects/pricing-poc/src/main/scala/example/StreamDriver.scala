@@ -96,7 +96,7 @@ object StreamDriver extends App {
     .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlVirtualMachine).transform)
 
   spark.conf.set("spark.sql.streaming.join.debug", "true")
-  val joinedDF = suitDF.transform(
+  val outputDF = suitDF.transform(
                   MigrationAssessmentTransformer(
                     resourceType = MigrationAssessmentSourceTypes.FullAssessment, 
                     spark = spark, 
@@ -104,17 +104,11 @@ object StreamDriver extends App {
                     skuMiDF = skuMiDF, 
                     skuVmDF = skuVmDF
                   ).transform
+                ).transform(
+                  MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.InstanceUpdate, spark).transform
                 )
 
-  // val joinedDF = suitDF.as("es")
-  //                 .join(skuDbDF.as("esrasd"), expr(s"""(es.uploadIdentifier == esrasd.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasd.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasd.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
-  //                 .join(skuMiDF.as("esrasm"), expr(s"""(es.uploadIdentifier == esrasm.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasm.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasm.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
-  //                 .join(skuVmDF.as("esrasv"), expr(s"""(es.uploadIdentifier == esrasv.uploadIdentifier) AND (es.enqueuedTime BETWEEN (esrasv.enqueuedTime - ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}) AND (esrasv.enqueuedTime + ${MigrationAssessmentConstants.DefaultAcrossStreamsIntervalMaxLag}))"""), joinType = "inner")
-  //                 .drop("type")
-  //                 .drop("timestamp")
-  //                 .drop("uploadIdentifier")
-
-  val outputDF = processInstanceUpdateEventStream(joinedDF)
+  // val outputDF = processInstanceUpdateEventStream(joinedDF)
   outputDF.printSchema()
 
 
@@ -152,116 +146,5 @@ object StreamDriver extends App {
     .start()
     .awaitTermination()
 
-  def processInstanceUpdateEventStream(
-      inDF: DataFrame
-  ): DataFrame = {
-    inDF.withColumn("assessmentUploadTime", col("es.enqueuedTime"))
-        .withColumn("serverAssessments", col("es.Servers.ServerAssessments"))
-        .withColumn("azuresqlvm_skuRecommendationForServers", col("esrasv.SkuRecommendationForServers"))
-        .withColumn("azuresqldb_skuRecommendationForServers", col("esrasd.SkuRecommendationForServers"))
-        .withColumn("azuresqlmi_skuRecommendationForServers", col("esrasm.SkuRecommendationForServers"))
-        .withColumn("azuresqlvm_skuRecommendationResults", element_at(col("azuresqlvm_skuRecommendationForServers.SkuRecommendationResults"), 1))
-        .withColumn("azuresqldb_skuRecommendationResults", element_at(col("azuresqldb_skuRecommendationForServers.SkuRecommendationResults"), 1))
-        .withColumn("azuresqlmi_skuRecommendationResults", element_at(col("azuresqlmi_skuRecommendationForServers.SkuRecommendationResults"), 1))
-        .withColumn("arm_resource",
-          to_json(
-                  struct(
-                    struct(
-                        struct(
-                            struct(
-                                col("assessmentUploadTime"),
-                                col("serverAssessments"),
-                                struct(
-                                    struct(
-                                      element_at(col("es.Servers.TargetReadinesses.AzureSqlDatabase.RecommendationStatus"), 1).alias("recommendationStatus"),
-                                      element_at(col("es.Servers.TargetReadinesses.AzureSqlDatabase.NumberOfServerBlockerIssues"), 1).alias("numberOfServerBlockerIssues"),
-                                        struct(
-                                            struct(
-                                                col("azuresqldb_skuRecommendationResults.TargetSku.Category.ComputeTier").alias("computeTier"),
-                                                col("azuresqldb_skuRecommendationResults.TargetSku.Category.HardwareType").alias("hardwareType"),
-                                                col("azuresqldb_skuRecommendationResults.TargetSku.Category.SqlPurchasingModel").alias("sqlPurchasingModel"),
-                                                col("azuresqldb_skuRecommendationResults.TargetSku.Category.SqlServiceTier").alias("sqlServiceTier"),
-                                                col("azuresqldb_skuRecommendationResults.TargetSku.Category.ZoneRedundancyAvailable").alias("zoneRedundancyAvailable")
-                                            ).alias("category"),
-                                            col("azuresqldb_skuRecommendationResults.TargetSku.storageMaxSizeInMb").alias("storageMaxSizeInMb"),
-                                            col("azuresqldb_skuRecommendationResults.TargetSku.predictedDataSizeInMb").alias("predictedDataSizeInMb"),
-                                            col("azuresqldb_skuRecommendationResults.TargetSku.predictedLogSizeInMb").alias("predictedLogSizeInMb"),
-                                            col("azuresqldb_skuRecommendationResults.TargetSku.maxStorageIops").alias("maxStorageIops"),
-                                            col("azuresqldb_skuRecommendationResults.TargetSku.maxThroughputMBps").alias("maxThroughputMBps"),
-                                            col("azuresqldb_skuRecommendationResults.TargetSku.computeSize").alias("computeSize")
-                                        ).alias("targetSku"),
-                                        struct(
-                                            col("azuresqldb_skuRecommendationResults.MonthlyCost.ComputeCost").alias("computeCost"),
-                                            col("azuresqldb_skuRecommendationResults.MonthlyCost.StorageCost").alias("storageCost"),
-                                            col("azuresqldb_skuRecommendationResults.MonthlyCost.iopsCost").alias("iopsCost"),
-                                            col("azuresqldb_skuRecommendationResults.MonthlyCost.TotalCost").alias("totalCost")
-                                        ).alias("monthlyCost"),
-                                        col("esrasd.monthlyCostOptions").alias("monthlyCostOptions"),
-                                    ).alias("azureSqlDatabase"),
-                                    struct(
-                                        element_at(col("es.Servers.TargetReadinesses.AzureSqlManagedInstance.RecommendationStatus"), 1).alias("recommendationStatus"),
-                                        element_at(col("es.Servers.TargetReadinesses.AzureSqlManagedInstance.NumberOfServerBlockerIssues"), 1).alias("numberOfServerBlockerIssues"),
-                                        struct(
-                                            struct(
-                                                col("azuresqlmi_skuRecommendationResults.TargetSku.Category.ComputeTier").alias("computeTier"),
-                                                col("azuresqlmi_skuRecommendationResults.TargetSku.Category.HardwareType").alias("hardwareType"),
-                                                col("azuresqlmi_skuRecommendationResults.TargetSku.Category.SqlPurchasingModel").alias("sqlPurchasingModel"),
-                                                col("azuresqlmi_skuRecommendationResults.TargetSku.Category.SqlServiceTier").alias("sqlServiceTier"),
-                                                col("azuresqlmi_skuRecommendationResults.TargetSku.Category.ZoneRedundancyAvailable").alias("zoneRedundancyAvailable")
-                                            ).alias("category"),
-                                            col("azuresqlmi_skuRecommendationResults.TargetSku.storageMaxSizeInMb").alias("storageMaxSizeInMb"),
-                                            col("azuresqlmi_skuRecommendationResults.TargetSku.predictedDataSizeInMb").alias("predictedDataSizeInMb"),
-                                            col("azuresqlmi_skuRecommendationResults.TargetSku.predictedLogSizeInMb").alias("predictedLogSizeInMb"),
-                                            col("azuresqlmi_skuRecommendationResults.TargetSku.maxStorageIops").alias("maxStorageIops"),
-                                            col("azuresqlmi_skuRecommendationResults.TargetSku.maxThroughputMBps").alias("maxThroughputMBps"),
-                                            col("azuresqlmi_skuRecommendationResults.TargetSku.computeSize").alias("computeSize")
-                                        ).alias("targetSku"),
-                                        struct(
-                                            col("azuresqlmi_skuRecommendationResults.MonthlyCost.ComputeCost").alias("computeCost"),
-                                            col("azuresqlmi_skuRecommendationResults.MonthlyCost.StorageCost").alias("storageCost"),
-                                            col("azuresqlmi_skuRecommendationResults.MonthlyCost.iopsCost").alias("iopsCost"),
-                                            col("azuresqlmi_skuRecommendationResults.MonthlyCost.TotalCost").alias("totalCost")
-                                        ).alias("monthlyCost"),
-                                        col("esrasm.monthlyCostOptions").alias("monthlyCostOptions"),
-                                    ).alias("azureSqlManagedInstance"),
-                                    struct(
-                                        lit("Ready").alias("recommendationStatus"),
-                                        lit(0).alias("numberOfServerBlockerIssues"),
-                                        struct(
-                                            struct(
-                                                col("azuresqlvm_skuRecommendationResults.TargetSku.Category.AvailableVmSkus").alias("availableVmSkus"),
-                                                col("azuresqlvm_skuRecommendationResults.TargetSku.Category.VirtualMachineFamily").alias("virtualMachineFamily"),
-                                            ).alias("category"),
-                                            col("azuresqlvm_skuRecommendationResults.TargetSku.predictedDataSizeInMb").alias("predictedDataSizeInMb"),
-                                            col("azuresqlvm_skuRecommendationResults.TargetSku.predictedLogSizeInMb").alias("predictedLogSizeInMb"),
-                                            struct(
-                                              col("azuresqlvm_skuRecommendationResults.TargetSku.virtualMachineSize.azureSkuName").alias("azureSkuName"),
-                                              col("azuresqlvm_skuRecommendationResults.TargetSku.virtualMachineSize.computeSize").alias("computeSize"),
-                                              col("azuresqlvm_skuRecommendationResults.TargetSku.virtualMachineSize.maxNetworkInterfaces").alias("maxNetworkInterfaces"),
-                                              col("azuresqlvm_skuRecommendationResults.TargetSku.virtualMachineSize.sizeName").alias("sizeName"),
-                                              col("azuresqlvm_skuRecommendationResults.TargetSku.virtualMachineSize.virtualMachineFamily").alias("virtualMachineFamily"),
-                                              col("azuresqlvm_skuRecommendationResults.TargetSku.virtualMachineSize.vCPUsAvailable").alias("vCPUsAvailable"),
-                                            ).alias("virtualMachineSize"),
-                                            col("azuresqlvm_skuRecommendationResults.TargetSku.dataDiskSizes").alias("dataDiskSizes"),
-                                            col("azuresqlvm_skuRecommendationResults.TargetSku.logDiskSizes").alias("logDiskSizes"),
-                                            col("azuresqlvm_skuRecommendationResults.TargetSku.tempDbDiskSizes").alias("tempDbDiskSizes"),
-                                            col("azuresqlvm_skuRecommendationResults.TargetSku.computeSize").alias("computeSize")
-                                        ).alias("targetSku"),
-                                        struct(
-                                            col("azuresqlvm_skuRecommendationResults.MonthlyCost.ComputeCost").alias("computeCost"),
-                                            col("azuresqlvm_skuRecommendationResults.MonthlyCost.StorageCost").alias("storageCost"),
-                                            col("azuresqlvm_skuRecommendationResults.MonthlyCost.iopsCost").alias("iopsCost"),
-                                            col("azuresqlvm_skuRecommendationResults.MonthlyCost.TotalCost").alias("totalCost")
-                                        ).alias("monthlyCost"),
-                                        col("esrasv.monthlyCostOptions").alias("monthlyCostOptions"),
-                                    ).alias("azureSqlVirtualMachine")
-                                ).alias("skuRecommendationResults")
-                            ).alias("assessment")
-                        ).alias("migration")
-                    ).alias("properties")
-              )
-            )
-          )   
-        .select("arm_resource")
-  }
+  
 }
