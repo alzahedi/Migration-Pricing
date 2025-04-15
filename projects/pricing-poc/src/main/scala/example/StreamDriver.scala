@@ -77,20 +77,20 @@ object StreamDriver extends App {
   val skuMiEventStream =  MigrationAssessmentReader(spark, skuMiEventHubFeed, MigrationAssessmentSourceTypes.EventHubRawEventStream).read()
   val skuVmEventStream =  MigrationAssessmentReader(spark, skuVmEventHubFeed, MigrationAssessmentSourceTypes.EventHubRawEventStream).read()
 
-  val suitabilityParsedStream = MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream).transform(suitabilityEventStream)
-  val skuDbParsedStream = MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream).transform(skuDbEventStream)
-  val skuMiParsedStream = MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream).transform(skuMiEventStream)
-  val skuVmParsedStream = MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream).transform(skuVmEventStream)
+  val suitabilityParsedStream = MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform(suitabilityEventStream)
+  val skuDbParsedStream = MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform(skuDbEventStream)
+  val skuMiParsedStream = MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform(skuMiEventStream)
+  val skuVmParsedStream = MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform(skuVmEventStream)
 
-  val suitDF = processStream(suitabilityParsedStream, MigrationAssessmentSourceTypes.Suitability)
+  val suitDF = MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.Suitability, spark).transform(suitabilityParsedStream)
   
-  val skuDbDF = processStream(skuDbParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationDB)
+  val skuDbDF = MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationDB, spark).transform(skuDbParsedStream)
                 .transform(PricingTransformer(PlatformType.AzureSqlDatabase, spark).transform)
 
-  val skuMiDF = processStream(skuMiParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationMI)
+  val skuMiDF = MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationMI, spark).transform(skuMiParsedStream)
                 .transform(PricingTransformer(PlatformType.AzureSqlManagedInstance, spark).transform)
 
-  val skuVmDF = processStream(skuVmParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationVM)
+  val skuVmDF = MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationVM, spark).transform(skuVmParsedStream)
                 .transform(PricingTransformer(PlatformType.AzureSqlVirtualMachine, spark).transform)
 
 
@@ -140,23 +140,6 @@ object StreamDriver extends App {
     .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/eventhub-checkpoint") // Must be a reliable location like DBFS or HDFS
     .start()
     .awaitTermination()
-
-  def processStream(inDF: DataFrame, maType: MigrationAssessmentSourceTypes.Value): DataFrame = {
-    val jsonPaths: Map[MigrationAssessmentSourceTypes.Value, String] = Map(
-      MigrationAssessmentSourceTypes.Suitability -> Paths.get(reportsDirPath, "suitability", "suit.json").toString,
-      MigrationAssessmentSourceTypes.SkuRecommendationDB -> Paths.get(reportsDirPath, "sku", "sku-db.json").toString,
-      MigrationAssessmentSourceTypes.SkuRecommendationMI -> Paths.get(reportsDirPath, "sku", "sku-mi.json").toString,
-      MigrationAssessmentSourceTypes.SkuRecommendationVM -> Paths.get(reportsDirPath, "sku", "sku-vm.json").toString
-    )
-    val schema = JsonReader(jsonPaths(maType), spark).read().schema
-
-    inDF.filter($"type" === maType.toString)
-        .select(col("*"), from_json(col("body"), schema).as("body_struct"))
-        .drop("body")
-        .select(col("*"), col("body_struct.*"))
-        .drop("body_struct")
-        .withWatermark("enqueuedTime", MigrationAssessmentConstants.DefaultLateArrivingWatermarkTime)
-  }
 
   def processInstanceUpdateEventStream(
       inDF: DataFrame
