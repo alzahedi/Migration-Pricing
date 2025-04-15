@@ -9,6 +9,17 @@ class EventHubStreamFeed(feed: EventHubFeedFormat, spark: SparkSession) {
       .options(feed.readerEventHubsConf.toMap)
       .load()
   }
+
+  def write(df: DataFrame): Unit = {
+    df
+      .writeStream
+      .outputMode("append")
+      .format("eventhubs")
+      .options(feed.writerEventHubsConf.toMap)
+      .option("checkpointLocation", feed.checkpointLocation) 
+      .start()
+      .awaitTermination()
+  }
 }
 
 object EventHubStreamFeed {

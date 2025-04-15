@@ -31,4 +31,8 @@ trait EventHubFeedFormat {
   /** Gets the writer Event Hubs Config.
     */
   def writerEventHubsConf: EventHubsConf = ???
+
+  /** Checkpoint location
+    */
+  def checkpointLocation: String = ???
 }

@@ -15,6 +15,7 @@ import example.security.TokenCredentialProvider
 import example.eventhub.EventHubStreamFeed
 import example.reader.MigrationAssessmentReader
 import example.transformers.MigrationAssessmentTransformer
+import example.eventhub.WriteEventHubFeedFormat
 
 object StreamDriver extends App {
 
@@ -30,8 +31,9 @@ object StreamDriver extends App {
   import spark.implicits._
 
   val eventHubNamespace = "pricing-streaming"
-  val eventHubName = "streaming-input"
-  val outputEventHubName = "streaming-output"
+  val sourceEventHubName = "streaming-input"
+  val sinkEventHubName = "streaming-output"
+  val eventHubCheckPointLocation = "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/eventhub-checkpoint"
 
   val suitabilityConsumerGroup = "suitability-instance-spark"
   val skuDbConsumerGroup = "sku-sql-db-instance-spark"
@@ -40,36 +42,32 @@ object StreamDriver extends App {
 
   // Create auth callback
   val authCallback = EventHubEntraAuthCallback(TokenCredentialProvider.getAzureCliCredential)
-  val eventHubConnection = EventHubConnection(eventHubNamespace, eventHubName)
+  val sourceEventHubConnection = EventHubConnection(eventHubNamespace, sourceEventHubName)
+  val sinkEventHubConnection = EventHubConnection(eventHubNamespace, sinkEventHubName)
   
   val suitabilityEventHubFeed = ReadEventHubFeedFormat(
-                                  eventHubConnection = eventHubConnection, 
+                                  eventHubConnection = sourceEventHubConnection, 
                                   specifiedConsumerGroup = suitabilityConsumerGroup, 
                                   entraCallback = authCallback
                                 )
 
   val skuDbEventHubFeed = ReadEventHubFeedFormat(
-                            eventHubConnection = eventHubConnection,
+                            eventHubConnection = sourceEventHubConnection,
                             specifiedConsumerGroup = skuDbConsumerGroup,
                             entraCallback = authCallback
                           )
 
   val skuMiEventHubFeed = ReadEventHubFeedFormat(
-                            eventHubConnection = eventHubConnection,
+                            eventHubConnection = sourceEventHubConnection,
                             specifiedConsumerGroup = skuMiConsumerGroup,
                             entraCallback = authCallback
                           )
 
   val skuVmEventHubFeed = ReadEventHubFeedFormat(
-                            eventHubConnection = eventHubConnection,
+                            eventHubConnection = sourceEventHubConnection,
                             specifiedConsumerGroup = skuVmConsumerGroup,
                             entraCallback = authCallback
                           )
-
-
-
-  val outputEventHubConf = EventHubsConf(s"Endpoint=sb://$eventHubNamespace.servicebus.windows.net/;EntityPath=$outputEventHubName")
-    .setAadAuthCallback(authCallback)
 
   val suitabilityEventStream = MigrationAssessmentReader(spark, suitabilityEventHubFeed, MigrationAssessmentSourceTypes.EventHubRawEventStream).read()
   val skuDbEventStream =  MigrationAssessmentReader(spark, skuDbEventHubFeed, MigrationAssessmentSourceTypes.EventHubRawEventStream).read()
@@ -95,7 +93,6 @@ object StreamDriver extends App {
     .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationVM, spark).transform)
     .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlVirtualMachine).transform)
 
-  spark.conf.set("spark.sql.streaming.join.debug", "true")
   val outputDF = suitDF.transform(
                   MigrationAssessmentTransformer(
                     resourceType = MigrationAssessmentSourceTypes.FullAssessment, 
@@ -108,43 +105,15 @@ object StreamDriver extends App {
                   MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.InstanceUpdate, spark).transform
                 )
 
-  // val outputDF = processInstanceUpdateEventStream(joinedDF)
   outputDF.printSchema()
-
-
-  // Process the result, e.g., showing it or saving to a file
-  // val query = joinedDF.writeStream
-  //   .outputMode("append")
-  //   .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/checkpoint")
-  //   .trigger(Trigger.ProcessingTime("60 seconds")).queryName("myTable")
-  //   .format("memory")
-  //   .start()
-
-  // while(true) {
-  //   println("Checking data.....")
-  //   Thread.sleep(1000)
-  //   //spark.sql("SELECT computeCost_1Yr, computeCost_3Yr, monthlyCostOptions FROM myTable").show(10000, true)
-  //   spark.sql("SELECT * FROM myTable").show(10000, true)
-  // }
 
   val serializedDF = outputDF
   .select(to_json(struct("*")).cast("string").alias("body"))
   .selectExpr("CAST(body AS BINARY) AS body")
 
-  // val serializedDF = outputDF
-  //   .select(to_json(struct("*")).alias("body"))
-  //   .selectExpr("CAST(body AS BINARY) AS body")
-
   serializedDF.printSchema()
   println("Starting write to event hub....")
-  val query = serializedDF
-    .writeStream
-    .outputMode("append")
-    .format("eventhubs")
-    .options(outputEventHubConf.toMap)
-    .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/eventhub-checkpoint") // Must be a reliable location like DBFS or HDFS
-    .start()
-    .awaitTermination()
-
+  val outputFeed = WriteEventHubFeedFormat(sinkEventHubConnection, eventHubCheckPointLocation, authCallback)
+  EventHubStreamFeed(outputFeed, spark).write(serializedDF)
   
 }
