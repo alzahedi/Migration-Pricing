@@ -1,7 +1,7 @@
-package example.azuredata.eventhub
+package example.eventhub
 
-import example.azuredata.security.BaseAadAuthCallback
-import example.azuredata.security.TokenCredentialProvider
+import example.security.BaseAadAuthCallback
+import example.security.TokenCredentialProvider
 import com.azure.core.credential.TokenCredential
 
 // Primary constructor (for manual use)

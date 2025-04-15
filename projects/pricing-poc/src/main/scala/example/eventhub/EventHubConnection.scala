@@ -1,4 +1,4 @@
-package example.azuredata.eventhub
+package example.eventhub
 
 case class EventHubConnection(
   namespace: String,

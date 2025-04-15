@@ -3,21 +3,19 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
 import org.apache.spark.eventhubs._
-import com.azure.identity.AzureCliCredentialBuilder
-import com.azure.core.credential.TokenRequestContext
-import org.apache.spark.eventhubs.utils.AadAuthenticationCallback
-import java.util.concurrent.CompletableFuture
 import java.nio.file.Paths
 import org.apache.spark.sql.streaming.Trigger
 import example.reader.JsonReader
 import example.constants.{MigrationAssessmentSourceTypes, MigrationAssessmentConstants}
 import example.constants.PlatformType
 import example.transformers.PricingTransformer
-import example.azuredata.eventhub.EventHubEntraAuthCallback
-import example.azuredata.eventhub.ReadEventHubFeedFormat
-import example.azuredata.eventhub.EventHubConnection
-import example.azuredata.security.TokenCredentialProvider
-import example.azuredata.eventhub.EventHubStreamReader
+import example.eventhub.EventHubEntraAuthCallback
+import example.eventhub.ReadEventHubFeedFormat
+import example.eventhub.EventHubConnection
+import example.security.TokenCredentialProvider
+import example.eventhub.EventHubStreamFeed
+import example.reader.MigrationAssessmentReader
+import example.transformers.MigrationAssessmentTransformer
 
 object StreamDriver extends App {
 
@@ -74,49 +72,26 @@ object StreamDriver extends App {
   val outputEventHubConf = EventHubsConf(s"Endpoint=sb://$eventHubNamespace.servicebus.windows.net/;EntityPath=$outputEventHubName")
     .setAadAuthCallback(authCallback)
 
-  val suitabilityEventStream = EventHubStreamReader(suitabilityEventHubFeed).read()
-  val skuDbEventStream = EventHubStreamReader(skuDbEventHubFeed).read()
-  val skuMiEventStream = EventHubStreamReader(skuMiEventHubFeed).read()
-  val skuVmEventStream = EventHubStreamReader(skuVmEventHubFeed).read()
+  val suitabilityEventStream = MigrationAssessmentReader(spark, suitabilityEventHubFeed, MigrationAssessmentSourceTypes.EventHubRawEventStream).read()
+  val skuDbEventStream =  MigrationAssessmentReader(spark, skuDbEventHubFeed, MigrationAssessmentSourceTypes.EventHubRawEventStream).read()
+  val skuMiEventStream =  MigrationAssessmentReader(spark, skuMiEventHubFeed, MigrationAssessmentSourceTypes.EventHubRawEventStream).read()
+  val skuVmEventStream =  MigrationAssessmentReader(spark, skuVmEventHubFeed, MigrationAssessmentSourceTypes.EventHubRawEventStream).read()
 
-
-  val eventSchema = StructType(Seq(
-    StructField("uploadIdentifier", StringType, nullable = false),
-    StructField("type", StringType, nullable = false),
-    StructField("body", StringType, nullable = false)
-  ))
-
-  val schemaStructNames: Map[MigrationAssessmentSourceTypes.Value, String] = Map(
-      MigrationAssessmentSourceTypes.Suitability -> "suitability_report_struct",
-      MigrationAssessmentSourceTypes.SkuRecommendationDB -> "sku_recommendation_azuresqldb_sku_recommendation_report_struct",
-      MigrationAssessmentSourceTypes.SkuRecommendationMI -> "sku_recommendation_azuresqlmi_sku_recommendation_report_struct",
-      MigrationAssessmentSourceTypes.SkuRecommendationVM -> "sku_recommendation_azuresqlvm_sku_recommendation_report_struct"
-    )
-
-
-  def parseStream(eventStream: DataFrame): DataFrame = {
-    eventStream
-      .selectExpr("CAST(body AS STRING) AS message", "enqueuedTime")
-      .select(from_json($"message", eventSchema).as("data"), $"enqueuedTime")
-      .select("data.*", "enqueuedTime")
-      .withColumn("timestamp", current_timestamp())
-  }
-
-  val suitabilityParsedStream = parseStream(suitabilityEventStream)
-  val skuDbParsedStream = parseStream(skuDbEventStream)
-  val skuMiParsedStream = parseStream(skuMiEventStream)
-  val skuVmParsedStream = parseStream(skuVmEventStream)
+  val suitabilityParsedStream = MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream).transform(suitabilityEventStream)
+  val skuDbParsedStream = MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream).transform(skuDbEventStream)
+  val skuMiParsedStream = MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream).transform(skuMiEventStream)
+  val skuVmParsedStream = MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream).transform(skuVmEventStream)
 
   val suitDF = processStream(suitabilityParsedStream, MigrationAssessmentSourceTypes.Suitability)
   
   val skuDbDF = processStream(skuDbParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationDB)
-                .transform(PricingTransformer(PlatformType.AzureSqlDatabase).transform)
+                .transform(PricingTransformer(PlatformType.AzureSqlDatabase, spark).transform)
 
   val skuMiDF = processStream(skuMiParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationMI)
-                .transform(PricingTransformer(PlatformType.AzureSqlManagedInstance).transform)
+                .transform(PricingTransformer(PlatformType.AzureSqlManagedInstance, spark).transform)
 
   val skuVmDF = processStream(skuVmParsedStream, MigrationAssessmentSourceTypes.SkuRecommendationVM)
-                .transform(PricingTransformer(PlatformType.AzureSqlVirtualMachine).transform)
+                .transform(PricingTransformer(PlatformType.AzureSqlVirtualMachine, spark).transform)
 
 
   spark.conf.set("spark.sql.streaming.join.debug", "true")

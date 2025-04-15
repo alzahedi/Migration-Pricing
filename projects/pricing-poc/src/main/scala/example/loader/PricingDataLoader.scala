@@ -6,7 +6,7 @@ import example.constants.PlatformType
 import example.reader.JsonReader
 
 
-class PricingDataLoader(platformType: PlatformType, category: String)(implicit spark: SparkSession) extends DataLoader {
+class PricingDataLoader(platformType: PlatformType, category: String, spark: SparkSession) extends DataLoader {
 
   override def load(): DataFrame = {
     val fileMappings: Map[PlatformType, Map[String, String]] = Map(
@@ -29,7 +29,7 @@ class PricingDataLoader(platformType: PlatformType, category: String)(implicit s
 }
 
 object PricingDataLoader {
-  def apply(platformType: PlatformType, category: String)(implicit spark: SparkSession) : PricingDataLoader = {
-    new PricingDataLoader(platformType, category)
+  def apply(platformType: PlatformType, category: String, spark: SparkSession): PricingDataLoader = {
+    new PricingDataLoader(platformType, category, spark)
   }
 }

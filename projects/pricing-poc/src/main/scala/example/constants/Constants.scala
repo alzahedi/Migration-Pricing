@@ -122,7 +122,7 @@ object AzureManagedDiskTier extends Enumeration {
 
 object MigrationAssessmentSourceTypes extends Enumeration {
   type TableTypes = Value
-  val Suitability, SkuRecommendationDB, SkuRecommendationMI, SkuRecommendationVM = Value
+  val EventHubRawEventStream, Suitability, SkuRecommendationDB, SkuRecommendationMI, SkuRecommendationVM = Value
 }
 
 object MigrationAssessmentConstants{

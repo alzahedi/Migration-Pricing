@@ -1,4 +1,4 @@
-package example.azuredata.security
+package example.security
 
 import com.azure.identity.{
   DefaultAzureCredentialBuilder,

@@ -1,4 +1,4 @@
-package example.azuredata
+package example.service
 
 import com.azure.identity.DefaultAzureCredentialBuilder
 import com.azure.storage.blob.{BlobContainerClient, BlobServiceClientBuilder}

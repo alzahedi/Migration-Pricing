@@ -1,4 +1,4 @@
-package example.azuredata.eventhub
+package example.eventhub
 
 import org.apache.spark.eventhubs.EventHubsConf
 import org.apache.spark.sql.streaming.Trigger

@@ -1,4 +1,4 @@
-package example.azuredata.security
+package example.security
 
 import com.azure.core.credential.{AccessToken, TokenCredential, TokenRequestContext}
 import org.apache.spark.eventhubs.utils.AadAuthenticationCallback

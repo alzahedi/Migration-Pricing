@@ -6,10 +6,10 @@ import example.constants.PlatformType
 import example.loader.PricingDataLoader
 import example.pricing.PaaSPricing
 
-class SqlDbPricingComputation extends PricingComputation {
-  override def compute(df: DataFrame)(implicit spark: SparkSession): DataFrame = {
-    val computeDF = PricingDataLoader(PlatformType.AzureSqlDatabase, "Compute").load()
-    val storageDF = PricingDataLoader(PlatformType.AzureSqlManagedInstance, "Storage").load()
+class SqlDbPricingComputation(spark: SparkSession) extends PricingComputation {
+  override def compute(df: DataFrame): DataFrame = {
+    val computeDF = PricingDataLoader(PlatformType.AzureSqlDatabase, "Compute", spark).load()
+    val storageDF = PricingDataLoader(PlatformType.AzureSqlManagedInstance, "Storage", spark).load()
     
     df.transform(PaaSPricing.transformPlatform())
       .transform(PaaSPricing.enrichWithStoragePricing(storageDF))
