@@ -11,11 +11,12 @@ import com.azure.storage.common.sas.SasProtocol
 
 import java.time.OffsetDateTime
 import scala.collection.JavaConverters._
+import example.security.TokenCredentialProvider
 
 object BlobService {
 
   private def getBlobServiceClient(accountName: String) = {
-    val credential = new DefaultAzureCredentialBuilder().build()
+    val credential = TokenCredentialProvider.getAzureCliCredential
     new BlobServiceClientBuilder()
       .credential(credential)
       .endpoint(s"https://$accountName.blob.core.windows.net")
@@ -41,23 +42,5 @@ object BlobService {
       blobServiceClient.getBlobContainerClient(containerName)
 
     containerClient.generateUserDelegationSas(sasValues, delegationKey)
-  }
-
-  /** List all JSON files in the container */
-  def listJsonFiles(
-      accountName: String,
-      containerName: String
-  ): List[String] = {
-    val blobServiceClient = getBlobServiceClient(accountName)
-    val containerClient: BlobContainerClient =
-      blobServiceClient.getBlobContainerClient(containerName)
-
-    containerClient
-      .listBlobs()
-      .asScala
-      .toList
-      .filter(blob => blob.getName.endsWith(".json")) // Only JSON files
-      .map(_.getName)
-      .toList
   }
 }
