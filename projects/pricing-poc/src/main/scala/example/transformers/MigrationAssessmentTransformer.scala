@@ -21,7 +21,9 @@ class MigrationAssessmentTransformer(
     platformType: PlatformType = null,
     skuDbDF: DataFrame = null,
     skuMiDF: DataFrame = null,
-    skuVmDF: DataFrame = null
+    skuVmDF: DataFrame = null,
+    computeDF: DataFrame = null,
+    storageDF: DataFrame = null
 ) extends DataTransformer {
 
   override def transform(df: DataFrame): DataFrame = {
@@ -184,7 +186,7 @@ class MigrationAssessmentTransformer(
           s"Unsupported platform: $platformType"
         )
     }
-    computation.compute(df)
+    computation.compute(df, computeDF, storageDF)
   }
 
   private def processTypedEventHubStream(df: DataFrame): DataFrame = {
@@ -213,8 +215,10 @@ object MigrationAssessmentTransformer {
     platformType: PlatformType = null,
     skuDbDF: DataFrame = null,
     skuMiDF: DataFrame = null,
-    skuVmDF: DataFrame = null
+    skuVmDF: DataFrame = null,
+    computeDF: DataFrame = null,
+    storageDF: DataFrame = null
 ): MigrationAssessmentTransformer = {
-    new MigrationAssessmentTransformer(resourceType, spark, platformType, skuDbDF, skuMiDF, skuVmDF)
+    new MigrationAssessmentTransformer(resourceType, spark, platformType, skuDbDF, skuMiDF, skuVmDF, computeDF, storageDF)
   }
 }

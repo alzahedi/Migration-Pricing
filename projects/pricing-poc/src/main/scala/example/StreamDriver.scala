@@ -18,6 +18,7 @@ import example.eventhub.EventHubStreamFeed
 import example.reader.MigrationAssessmentReader
 import example.transformers.MigrationAssessmentTransformer
 import example.eventhub.WriteEventHubFeedFormat
+import example.loader.PricingDataLoader
 
 object StreamDriver extends App {
 
@@ -72,6 +73,14 @@ object StreamDriver extends App {
                             entraCallback = authCallback
                           )
 
+  val computeDBDF   = PricingDataLoader(PlatformType.AzureSqlDatabase, "Compute", spark).load()
+  val storagePaasDF = PricingDataLoader(PlatformType.AzureSqlManagedInstance, "Storage", spark).load()
+
+  val computeMIDF = PricingDataLoader(PlatformType.AzureSqlManagedInstance, "Compute", spark).load()
+
+  val computeVMDF = PricingDataLoader(PlatformType.AzureSqlVirtualMachine, "Compute", spark).load()
+  val storageVMDF = PricingDataLoader(PlatformType.AzureSqlVirtualMachine, "Storage", spark).load()
+
   val suitabilityEventStream = MigrationAssessmentReader(spark, suitabilityEventHubFeed, MigrationAssessmentSourceTypes.EventHubRawEventStream).read()
   val skuDbEventStream =  MigrationAssessmentReader(spark, skuDbEventHubFeed, MigrationAssessmentSourceTypes.EventHubRawEventStream).read()
   val skuMiEventStream =  MigrationAssessmentReader(spark, skuMiEventHubFeed, MigrationAssessmentSourceTypes.EventHubRawEventStream).read()
@@ -84,17 +93,17 @@ object StreamDriver extends App {
   val skuDbDF = skuDbEventStream
     .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform)
     .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationDB, spark).transform)
-    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlDatabase).transform)
+    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlDatabase, computeDF=computeDBDF, storageDF=storagePaasDF).transform)
   
   val skuMiDF = skuMiEventStream
     .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform)
     .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationMI, spark).transform)
-    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlManagedInstance).transform)
+    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlManagedInstance, computeDF=computeMIDF, storageDF=storagePaasDF).transform)
 
   val skuVmDF = skuVmEventStream
     .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform)
     .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationVM, spark).transform)
-    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlVirtualMachine).transform)
+    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlVirtualMachine, computeDF=computeVMDF, storageDF=storageVMDF).transform)
 
   val outputDF = suitDF.transform(
                   MigrationAssessmentTransformer(
