@@ -91,7 +91,7 @@ class MigrationAssessmentTransformer(
                                             col("azuresqldb_skuRecommendationResults.MonthlyCost.iopsCost").alias("iopsCost"),
                                             col("azuresqldb_skuRecommendationResults.MonthlyCost.TotalCost").alias("totalCost")
                                         ).alias("monthlyCost"),
-                                        col("esrasd.monthlyCostOptions").alias("monthlyCostOptions"),
+                                       col("esrasd.monthlyCostOptions").alias("monthlyCostOptions"),
                                     ).alias("azureSqlDatabase"),
                                     struct(
                                         element_at(col("es.Servers.TargetReadinesses.AzureSqlManagedInstance.RecommendationStatus"), 1).alias("recommendationStatus"),
@@ -148,7 +148,7 @@ class MigrationAssessmentTransformer(
                                             col("azuresqlvm_skuRecommendationResults.MonthlyCost.iopsCost").alias("iopsCost"),
                                             col("azuresqlvm_skuRecommendationResults.MonthlyCost.TotalCost").alias("totalCost")
                                         ).alias("monthlyCost"),
-                                        col("esrasv.monthlyCostOptions").alias("monthlyCostOptions"),
+                                       col("esrasv.monthlyCostOptions").alias("monthlyCostOptions"),
                                     ).alias("azureSqlVirtualMachine")
                                 ).alias("skuRecommendationResults")
                             ).alias("assessment")

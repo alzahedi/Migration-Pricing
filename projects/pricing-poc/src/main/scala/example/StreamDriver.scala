@@ -28,6 +28,7 @@ object StreamDriver extends App {
   implicit val spark = SparkSession.builder()
     .appName("EventHubReader")
     .master("local[*]") 
+    .config("spark.sql.streaming.statefulOperator.checkCorrectness.enabled", "false")
     .getOrCreate()
 
   import spark.implicits._

@@ -1,4 +1,5 @@
 import Dependencies._
+import sbtassembly.AssemblyPlugin.autoImport._
 
 ThisBuild / scalaVersion := "2.12.18"
 ThisBuild / version := "0.1.0-SNAPSHOT"
@@ -26,6 +27,8 @@ enablePlugins(AssemblyPlugin)
 
 // Merge strategy for assembling JAR
 assembly / assemblyMergeStrategy := {
-  case PathList("META-INF", xs @ _*) => MergeStrategy.discard
-  case _                             => MergeStrategy.first
+  case PathList("META-INF", "services", xs @ _*) => MergeStrategy.concat
+  case PathList("META-INF", xs @ _*)             => MergeStrategy.discard
+  case "reference.conf"                          => MergeStrategy.concat
+  case _                                         => MergeStrategy.first
 }
