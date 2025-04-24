@@ -95,37 +95,53 @@ object StreamDriver extends App {
     .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationDB, spark).transform)
     .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlDatabase, computeDF=computeDBDF, storageDF=storagePaasDF).transform)
   
-  val skuMiDF = skuMiEventStream
-    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform)
-    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationMI, spark).transform)
-    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlManagedInstance, computeDF=computeMIDF, storageDF=storagePaasDF).transform)
 
-  val skuVmDF = skuVmEventStream
-    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform)
-    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationVM, spark).transform)
-    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlVirtualMachine, computeDF=computeVMDF, storageDF=storageVMDF).transform)
+  skuDbDF.printSchema()
 
-  val outputDF = suitDF.transform(
-                  MigrationAssessmentTransformer(
-                    resourceType = MigrationAssessmentSourceTypes.FullAssessment, 
-                    spark = spark, 
-                    skuDbDF = skuDbDF, 
-                    skuMiDF = skuMiDF, 
-                    skuVmDF = skuVmDF
-                  ).transform
-                ).transform(
-                  MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.InstanceUpdate, spark).transform
-                )
+//   Process the result, e.g., showing it or saving to a file
+  val query = skuDbDF.writeStream
+    .outputMode("append")
+    .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/checkpoint")
+    .trigger(Trigger.ProcessingTime("60 seconds")).queryName("myTable")
+    .format("memory")
+    .start()
 
-  outputDF.printSchema()
+  while(true) {
+    println("Checking data.....")
+    Thread.sleep(1000)
+    //spark.sql("SELECT computeCost_1Yr, computeCost_3Yr, monthlyCostOptions FROM myTable").show(10000, true)
+    spark.sql("SELECT uploadIdentifier, databaseName, monthlyCostOptions FROM myTable").show(10000, false)  }
+  // val skuMiDF = skuMiEventStream
+  //   .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform)
+  //   .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationMI, spark).transform)
+  //   .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlManagedInstance, computeDF=computeMIDF, storageDF=storagePaasDF).transform)
 
-  val serializedDF = outputDF
-  .select(to_json(struct("*")).cast("string").alias("body"))
-  .selectExpr("CAST(body AS BINARY) AS body")
+  // val skuVmDF = skuVmEventStream
+  //   .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform)
+  //   .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationVM, spark).transform)
+  //   .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlVirtualMachine, computeDF=computeVMDF, storageDF=storageVMDF).transform)
 
-  serializedDF.printSchema()
-  println("Starting write to event hub....")
-  val outputFeed = WriteEventHubFeedFormat(sinkEventHubConnection, eventHubCheckPointLocation, authCallback)
-  EventHubStreamFeed(outputFeed, spark).write(serializedDF)
+  // val outputDF = suitDF.transform(
+  //                 MigrationAssessmentTransformer(
+  //                   resourceType = MigrationAssessmentSourceTypes.FullAssessment, 
+  //                   spark = spark, 
+  //                   skuDbDF = skuDbDF, 
+  //                   skuMiDF = skuMiDF, 
+  //                   skuVmDF = skuVmDF
+  //                 ).transform
+  //               ).transform(
+  //                 MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.InstanceUpdate, spark).transform
+  //               )
+
+  // outputDF.printSchema()
+
+  // val serializedDF = outputDF
+  // .select(to_json(struct("*")).cast("string").alias("body"))
+  // .selectExpr("CAST(body AS BINARY) AS body")
+
+  // serializedDF.printSchema()
+  // println("Starting write to event hub....")
+  // val outputFeed = WriteEventHubFeedFormat(sinkEventHubConnection, eventHubCheckPointLocation, authCallback)
+  // EventHubStreamFeed(outputFeed, spark).write(serializedDF)
   
 }

@@ -3,14 +3,14 @@ import os
 import uuid
 import time
 from azure.eventhub import EventHubProducerClient, EventData
-from azure.identity import DefaultAzureCredential
+from azure.identity import AzureCliCredential
 
 # Azure Event Hub details
 EVENT_HUB_NAMESPACE = "pricing-streaming"
 EVENT_HUB_NAME = "streaming-input"
 
 # Authenticate using Azure AD
-credential = DefaultAzureCredential()
+credential = AzureCliCredential()
 
 # Get current script directory and construct paths
 current_dir = os.path.dirname(os.path.abspath(__file__))

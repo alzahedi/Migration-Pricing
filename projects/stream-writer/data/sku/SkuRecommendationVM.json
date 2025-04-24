@@ -1,37 +1,37 @@
 {
-    "TimeCreated": "2025-03-12T07:00:33.8496818Z",
+    "TimeCreated": "2025-04-23T08:06:10.1929476Z",
     "SkuRecommendationForServers": [
         {
-            "ServerName": "ARCBOX-SQL",
+            "ServerName": "CPC-alzah-VWM1H",
             "TargetPlatform": "AzureSqlVirtualMachine",
             "Requirements": {
                 "CpuRequirementInCores": 0.00,
-                "DataStorageRequirementInMB": 21.94,
-                "LogStorageRequirementInMB": 2.00,
-                "MemoryRequirementInMB": 3.83,
-                "InstanceIOPSDataLogFileRequirement": 0.05,
-                "DataIOPSRequirement": 0.05,
-                "LogIOPSRequirement": 0.01,
-                "IOLatencyRequirementInMs": 0.05,
-                "IOThroughputRequirementInMBps": 0.00,
-                "DataIOThroughputRequirementInMBps": 0.00,
+                "DataStorageRequirementInMB": 208.00,
+                "LogStorageRequirementInMB": 80.00,
+                "MemoryRequirementInMB": 12.57,
+                "InstanceIOPSDataLogFileRequirement": 1.19,
+                "DataIOPSRequirement": 1.14,
+                "LogIOPSRequirement": 0.06,
+                "IOLatencyRequirementInMs": 0.55,
+                "IOThroughputRequirementInMBps": 0.06,
+                "DataIOThroughputRequirementInMBps": 0.06,
                 "LogIOThroughputRequirementInMBps": 0.00,
-                "InstanceId": "ARCBOX-SQL",
-                "InstanceVersion": "15.0.2104.1",
+                "InstanceId": "CPC-alzah-VWM1H",
+                "InstanceVersion": "16.0.1135.2",
                 "InstanceEdition": "Developer Edition (64-bit)",
-                "LogicalCpuCount": 1,
+                "LogicalCpuCount": 16,
                 "ServerCollation": "SQL_Latin1_General_CP1_CI_AS",
-                "HyperthreadRatio": 1.00,
-                "PhysicalCpuCount": 1.00,
+                "HyperthreadRatio": 16.00,
+                "PhysicalCpuCount": 16.00,
                 "MaxServerMemoryInUse": 2147483647.00,
                 "TempDBSizeInMB": 72.00,
-                "NumOfLogins": 16,
-                "SqlStartTime": "2025-03-11T11:38:05",
-                "AggregatedPhysicalMemoryInUse": 272.48,
-                "AggregatedMemoryUtilizationPercentage": 99.21,
+                "NumOfLogins": 17,
+                "SqlStartTime": "2025-04-10T17:37:40",
+                "AggregatedPhysicalMemoryInUse": 1054.68,
+                "AggregatedMemoryUtilizationPercentage": 96.55,
                 "AggregatedSqlInstanceCpuPercent": 0.00,
-                "DataPointsStartTime": "0001-01-01T08:00:00Z",
-                "DataPointsEndTime": "2025-03-12T07:00:24.0562211Z",
+                "DataPointsStartTime": "0001-01-01T00:00:00Z",
+                "DataPointsEndTime": "2025-04-23T08:05:55.6255126Z",
                 "AggregationTargetPercentile": 95,
                 "PerfDataCollectionIntervalInSeconds": 30,
                 "SqlServerHostRequirements": {
@@ -43,68 +43,128 @@
                     {
                         "DatabaseCollation": "SQL_Latin1_General_CP1_CI_AS",
                         "CpuRequirementInCores": 0.00,
-                        "CpuRequirementInPercentageOfTotalInstance": 0.00,
-                        "MemoryRequirementInMB": 3.83,
-                        "DataIOPSRequirement": 0.05,
-                        "LogIOPSRequirement": 0.01,
-                        "IOLatencyRequirementInMs": 0.05,
-                        "IOThroughputRequirementInMBps": 0.00,
-                        "DataFileIOThroughputRequirementInMBps": 0.00,
+                        "CpuRequirementInPercentageOfTotalInstance": 4.75,
+                        "MemoryRequirementInMB": 12.54,
+                        "DataIOPSRequirement": 0.29,
+                        "LogIOPSRequirement": 0.00,
+                        "IOLatencyRequirementInMs": 0.22,
+                        "IOThroughputRequirementInMBps": 0.02,
+                        "DataFileIOThroughputRequirementInMBps": 0.02,
                         "LogFileIOThroughputRequirementInMBps": 0.00,
                         "LogWriteRateInMBPerSecRequirement": 0.00,
-                        "DataStorageRequirementInMB": 21.94,
-                        "LogStorageRequirementInMB": 2.00,
-                        "DatabaseName": "AdventureWorksLT2019",
-                        "AggregatedCachedSizeInMb": 3.83,
+                        "DataStorageRequirementInMB": 200.00,
+                        "LogStorageRequirementInMB": 72.00,
+                        "DatabaseName": "AdventureWorks2022",
+                        "AggregatedCachedSizeInMb": 12.54,
+                        "AggregatedCpuPercent": 4.75,
+                        "ExcludeFromRecommendation": false,
+                        "FileLevelRequirements": [
+                            {
+                                "ParentDatabaseName": "AdventureWorks2022",
+                                "FileLogicalName": "AdventureWorks2022",
+                                "FileName": "C:\\Program Files\\Microsoft SQL Server\\MSSQL16.MSSQLSERVER\\MSSQL\\DATA\\AdventureWorks2022.mdf",
+                                "FileType": "Rows",
+                                "SizeInMB": 200.00,
+                                "ReadLatencyInMs": 0.22,
+                                "WriteLatencyInMs": 0.00,
+                                "AggregatedNumOfReads": 8.61,
+                                "AggregatedNumOfWrites": 0.00,
+                                "AggregatedReadIOInMb": 0.51,
+                                "AggregatedWriteIOInMb": 0.00,
+                                "CollectionInterval": 30.00,
+                                "IOPSRequirement": 0.29,
+                                "IOThroughputRequirementInMBps": 0.02,
+                                "WriteRateRequirementInMBps": 0.00,
+                                "NumberOfDataPointsAnalyzed": 500100.00
+                            },
+                            {
+                                "ParentDatabaseName": "AdventureWorks2022",
+                                "FileLogicalName": "AdventureWorks2022_log",
+                                "FileName": "C:\\Program Files\\Microsoft SQL Server\\MSSQL16.MSSQLSERVER\\MSSQL\\DATA\\AdventureWorks2022_log.ldf",
+                                "FileType": "Log",
+                                "SizeInMB": 72.00,
+                                "ReadLatencyInMs": 0.00,
+                                "WriteLatencyInMs": 0.00,
+                                "AggregatedNumOfReads": 0.00,
+                                "AggregatedNumOfWrites": 0.01,
+                                "AggregatedReadIOInMb": 0.00,
+                                "AggregatedWriteIOInMb": 0.00,
+                                "CollectionInterval": 30.00,
+                                "IOPSRequirement": 0.00,
+                                "IOThroughputRequirementInMBps": 0.00,
+                                "WriteRateRequirementInMBps": 0.00,
+                                "NumberOfDataPointsAnalyzed": 500100.00
+                            }
+                        ],
+                        "NumberOfDataPointsAnalyzed": 173181.00
+                    },
+                    {
+                        "DatabaseCollation": "SQL_Latin1_General_CP1_CI_AS",
+                        "CpuRequirementInCores": 0.00,
+                        "CpuRequirementInPercentageOfTotalInstance": 0.00,
+                        "MemoryRequirementInMB": 0.03,
+                        "DataIOPSRequirement": 0.85,
+                        "LogIOPSRequirement": 0.05,
+                        "IOLatencyRequirementInMs": 0.66,
+                        "IOThroughputRequirementInMBps": 0.05,
+                        "DataFileIOThroughputRequirementInMBps": 0.05,
+                        "LogFileIOThroughputRequirementInMBps": 0.00,
+                        "LogWriteRateInMBPerSecRequirement": 0.00,
+                        "DataStorageRequirementInMB": 8.00,
+                        "LogStorageRequirementInMB": 8.00,
+                        "DatabaseName": "TESTDB",
+                        "AggregatedCachedSizeInMb": 0.03,
                         "AggregatedCpuPercent": 0.00,
                         "ExcludeFromRecommendation": false,
                         "FileLevelRequirements": [
                             {
-                                "ParentDatabaseName": "AdventureWorksLT2019",
-                                "FileLogicalName": "AdventureWorksLT2012_Data",
-                                "FileName": "C:\\Program Files\\Microsoft SQL Server\\MSSQL15.MSSQLSERVER\\MSSQL\\DATA\\AdventureWorksLT2012.mdf",
+                                "ParentDatabaseName": "TESTDB",
+                                "FileLogicalName": "TESTDB",
+                                "FileName": "C:\\Program Files\\Microsoft SQL Server\\MSSQL16.MSSQLSERVER\\MSSQL\\DATA\\TESTDB.mdf",
                                 "FileType": "Rows",
-                                "SizeInMB": 21.94,
-                                "ReadLatencyInMs": 0.06,
-                                "WriteLatencyInMs": 0.03,
-                                "AggregatedNumOfReads": 0.82,
-                                "AggregatedNumOfWrites": 0.58,
-                                "AggregatedReadIOInMb": 0.09,
+                                "SizeInMB": 8.00,
+                                "ReadLatencyInMs": 0.72,
+                                "WriteLatencyInMs": 0.37,
+                                "AggregatedNumOfReads": 20.77,
+                                "AggregatedNumOfWrites": 4.72,
+                                "AggregatedReadIOInMb": 1.38,
+                                "AggregatedWriteIOInMb": 0.00,
+                                "CollectionInterval": 30.00,
+                                "IOPSRequirement": 0.85,
+                                "IOThroughputRequirementInMBps": 0.05,
+                                "WriteRateRequirementInMBps": 0.00,
+                                "NumberOfDataPointsAnalyzed": 852.00
+                            },
+                            {
+                                "ParentDatabaseName": "TESTDB",
+                                "FileLogicalName": "TESTDB_log",
+                                "FileName": "C:\\Program Files\\Microsoft SQL Server\\MSSQL16.MSSQLSERVER\\MSSQL\\DATA\\TESTDB_log.ldf",
+                                "FileType": "Log",
+                                "SizeInMB": 8.00,
+                                "ReadLatencyInMs": 0.00,
+                                "WriteLatencyInMs": 0.13,
+                                "AggregatedNumOfReads": 0.00,
+                                "AggregatedNumOfWrites": 1.65,
+                                "AggregatedReadIOInMb": 0.00,
                                 "AggregatedWriteIOInMb": 0.00,
                                 "CollectionInterval": 30.00,
                                 "IOPSRequirement": 0.05,
                                 "IOThroughputRequirementInMBps": 0.00,
                                 "WriteRateRequirementInMBps": 0.00,
-                                "NumberOfDataPointsAnalyzed": 9144.00
-                            },
-                            {
-                                "ParentDatabaseName": "AdventureWorksLT2019",
-                                "FileLogicalName": "AdventureWorksLT2012_Log",
-                                "FileName": "C:\\Program Files\\Microsoft SQL Server\\MSSQL15.MSSQLSERVER\\MSSQL\\DATA\\AdventureWorksLT2012_log.ldf",
-                                "FileType": "Log",
-                                "SizeInMB": 2.00,
-                                "ReadLatencyInMs": 0.00,
-                                "WriteLatencyInMs": 0.60,
-                                "AggregatedNumOfReads": 0.00,
-                                "AggregatedNumOfWrites": 0.24,
-                                "AggregatedReadIOInMb": 0.00,
-                                "AggregatedWriteIOInMb": 0.00,
-                                "CollectionInterval": 30.00,
-                                "IOPSRequirement": 0.01,
-                                "IOThroughputRequirementInMBps": 0.00,
-                                "WriteRateRequirementInMBps": 0.00,
-                                "NumberOfDataPointsAnalyzed": 9144.00
+                                "NumberOfDataPointsAnalyzed": 852.00
                             }
                         ],
-                        "NumberOfDataPointsAnalyzed": 1629.00
+                        "NumberOfDataPointsAnalyzed": 152.00
                     }
                 ],
-                "NumberOfDataPointsAnalyzed": 4821.00
+                "NumberOfDataPointsAnalyzed": 289137.00
             },
             "SkuRecommendationResults": [
                 {
-                    "SqlInstanceName": "ARCBOX-SQL",
+                    "SqlInstanceName": "CPC-alzah-VWM1H",
                     "ServerCollation": "SQL_Latin1_General_CP1_CI_AS",
+                    "ElasticPoolCount": 0,
+                    "resourceType": "ElasticPool",
                     "TargetSku": {
                         "VirtualMachineSize": {
                             "VirtualMachineFamily": "standardDASv4Family",
@@ -137,8 +197,8 @@
                             }
                         ],
                         "TempDbDiskSizes": [],
-                        "PredictedDataSizeInMb": 21.94,
-                        "PredictedLogSizeInMb": 2.00,
+                        "PredictedDataSizeInMb": 208.00,
+                        "PredictedLogSizeInMb": 80.00,
                         "Category": {
                             "VirtualMachineFamily": "standardDASv4Family",
                             "AvailableVmSkus": [
@@ -165,42 +225,42 @@
                     "RecommendationReasonings": [
                         {
                             "ReasoningType": "PositiveReasoning",
-                            "ReasoningEnum": "MeetsVirtualMachineCpuScalingFactorRequirementGreaterThanSource",
-                            "ReasoningString": "Considering the 0.001% utilization of the 1 cores according to the performance data collected, 2 vCores are recommended. The recommended Azure VM size provides more compute than your source requires. However, a smaller SKU was not recommended because of other factors, including memory, storage, and IO.",
+                            "ReasoningEnum": "MeetsVirtualMachineCpuScalingFactorRequirement",
+                            "ReasoningString": "Considering the 0% utilization of the 16 cores according to the performance data collected, 2 vCores are recommended. This recommendation also includes other factors, including memory, storage, and IO.",
                             "ReasoningCategory": "CpuType",
                             "Parameters": {
-                                "CoreUtilizationPercentage": "0.001",
-                                "AllocatedCores": "1",
+                                "CoreUtilizationPercentage": "0",
+                                "AllocatedCores": "16",
                                 "TargetCoresRecommended": "2"
                             }
                         },
                         {
                             "ReasoningType": "PositiveReasoning",
                             "ReasoningEnum": "MeetsVirtualMachineMemoryRequirement",
-                            "ReasoningString": "Given the memory requirement of 0.004 GB, 8 GB memory was recommended.",
+                            "ReasoningString": "Given the memory requirement of 0.012 GB, 8 GB memory was recommended.",
                             "ReasoningCategory": "MemoryType",
                             "Parameters": {
-                                "BufferPoolSizeInGB": "0.004",
+                                "BufferPoolSizeInGB": "0.012",
                                 "RAMRecommendedInGB": "8"
                             }
                         },
                         {
                             "ReasoningType": "PositiveReasoning",
                             "ReasoningEnum": "MeetsVirtualMachineIOPSRequirement",
-                            "ReasoningString": "Data and log files require 0.05474304306005308 IOPS which can be met by this disk's uncached limit of 3200 IOPS.",
+                            "ReasoningString": "Data and log files require 1.191804828023547 IOPS which can be met by this disk's uncached limit of 3200 IOPS.",
                             "ReasoningCategory": "IOPSType",
                             "Parameters": {
-                                "VirtualMachineIOPSRequiredInIOPerSec": "0.05474304306005308",
+                                "VirtualMachineIOPSRequiredInIOPerSec": "1.191804828023547",
                                 "VirtualMachineUncachedDiskIOPSAvailableInIOPerSec": "3200"
                             }
                         },
                         {
                             "ReasoningType": "PositiveReasoning",
                             "ReasoningEnum": "MeetsVirtualMachineIOThroughputRequirement",
-                            "ReasoningString": "Combined read and write IO throughput requirement is 0.003 MB/second which can be met by this SKU's throughput of 48 MB/second.",
+                            "ReasoningString": "Combined read and write IO throughput requirement is 0.063 MB/second which can be met by this SKU's throughput of 48 MB/second.",
                             "ReasoningCategory": "ThroughputType",
                             "Parameters": {
-                                "VirtualMachineIOThroughputRequiredInInMBPerSec": "0.003",
+                                "VirtualMachineIOThroughputRequiredInInMBPerSec": "0.063",
                                 "VirtualMachineIOThroughputUncachedAvailableInIOPerSec": "48"
                             }
                         },
@@ -226,12 +286,12 @@
                     "PositiveJustifications": [
                         "According to the performance data collected, we estimate that your instance has a compute requirement of 0.00 vCores. Based on other factors, including memory, storage, and IO, this is the smallest compute sizing that will satisfy all of your requirements.",
                         "We recommend placing tempdb on the local ephemeral SSD. This Virtual Machine size supports temporary local storage of up to 16.00 GB, which is large enough to host your 0.07 GB tempdb.",
-                        "This instance requires 0.00 GB of memory, which can be satisfied by this SKU's maximum of 8.00 GB.",
+                        "This instance requires 0.01 GB of memory, which can be satisfied by this SKU's maximum of 8.00 GB.",
                         "This Virtual Machine size's Memory-to-vCore ratio of 4.0 is greater than or equal to the recommended value of 4.0.",
-                        "This instance's IOPS requirement of 0.05 is within this Virtual Machine size's uncached IOPS limit of 3200.",
-                        "This instance's IO throughput requirement of 0.00 MBps is within this Virtual Machine size's uncached limit of 48.00 MBps.",
-                        "We recommend provisioning dedicated disks for Data storage. This instance's Data storage requirement of 0.02 GB and 0.05 IOPS requirement will fit on 1 P2 disk(s), which can hold 8 GB each.",
-                        "We recommend provisioning dedicated disks for Log storage. This instance's Log storage requirement of 0.00 GB and 0.01 IOPS requirement will fit on 1 P2 disk(s), which can hold 8 GB each."
+                        "This instance's IOPS requirement of 1.19 is within this Virtual Machine size's uncached IOPS limit of 3200.",
+                        "This instance's IO throughput requirement of 0.06 MBps is within this Virtual Machine size's uncached limit of 48.00 MBps.",
+                        "We recommend provisioning dedicated disks for Data storage. This instance's Data storage requirement of 0.20 GB and 1.14 IOPS requirement will fit on 1 P2 disk(s), which can hold 8 GB each.",
+                        "We recommend provisioning dedicated disks for Log storage. This instance's Log storage requirement of 0.08 GB and 0.06 IOPS requirement will fit on 1 P2 disk(s), which can hold 8 GB each."
                     ]
                 }
             ]

@@ -4,7 +4,7 @@ import org.apache.spark.sql.{DataFrame, Column}
 import org.apache.spark.sql.functions._
 import example.constants.{AzureSqlPaaSServiceTier, RecommendationConstants, AzureSqlPaaSHardwareType, PricingType, PlatformType}
 
-object PaaSPricing {
+object SQLMIPricing {
 
   // Entry point to transform the incoming platform DataFrame
   def transformPlatform(): DataFrame => DataFrame = { df =>
