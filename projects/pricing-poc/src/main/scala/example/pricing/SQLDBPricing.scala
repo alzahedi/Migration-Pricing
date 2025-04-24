@@ -6,17 +6,58 @@ import example.constants.{AzureSqlPaaSServiceTier, RecommendationConstants, Azur
 
 object SQLDBPricing {
   // Entry point to transform the incoming platform DataFrame
-  def transformPlatform(): DataFrame => DataFrame = { df =>
-    df
-      .withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
-      .withColumn("SkuRecommendationResults", explode(col("SkuRecommendationForServers.SkuRecommendationResults")))
-      .transform(addServiceTier)
-      .transform(addHardwareType)
-      .withColumn("computeSize", col("SkuRecommendationResults.TargetSku.ComputeSize"))
-      .withColumn("storageMaxSizeInMb", col("SkuRecommendationResults.TargetSku.StorageMaxSizeInMb"))
-      .withColumn("targetPlatform", col("SkuRecommendationResults.TargetSku.Category.SqlTargetPlatform"))
-      .withColumn("databaseName", col("SkuRecommendationResults.DatabaseName"))
-      .withColumn("storageMaxSizeInGb", col("SkuRecommendationResults.TargetSku.StorageMaxSizeInMb") / 1024)
+  // def transformPlatform(): DataFrame => DataFrame = { df =>
+  //   df
+  //     .withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
+  //     .withColumn("SkuRecommendationResults", explode(col("SkuRecommendationForServers.SkuRecommendationResults")))
+  //     .transform(addServiceTier)
+  //     .transform(addHardwareType)
+  //     .withColumn("computeSize", col("SkuRecommendationResults.TargetSku.ComputeSize"))
+  //     .withColumn("storageMaxSizeInMb", col("SkuRecommendationResults.TargetSku.StorageMaxSizeInMb"))
+  //     .withColumn("targetPlatform", col("SkuRecommendationResults.TargetSku.Category.SqlTargetPlatform"))
+  //     .withColumn("databaseName", col("SkuRecommendationResults.DatabaseName"))
+  //     .withColumn("storageMaxSizeInGb", col("SkuRecommendationResults.TargetSku.StorageMaxSizeInMb") / 1024)
+  // }
+
+  def transformPlatform(): DataFrame => DataFrame = { df => 
+    df.withColumn(
+      "SkuRecommendationForServers",
+      transform(col("SkuRecommendationForServers"), server =>
+        server.withField(
+          "SkuRecommendationResults",
+          transform(server.getField("SkuRecommendationResults"), result =>
+            result
+              .withField(
+                "sqlServiceTier",
+                when(result.getField("TargetSku").getField("Category").getField("SqlServiceTier")
+                  .isin("General Purpose", "Next-Gen General Purpose"), "General Purpose")
+                  .when(result.getField("TargetSku").getField("Category").getField("SqlServiceTier") === "Business Critical", "Business Critical")
+                  .when(result.getField("TargetSku").getField("Category").getField("SqlServiceTier") === "Hyperscale", "Hyperscale")
+                  .otherwise("Unknown")
+              )
+              .withField(
+                "sqlHardwareType",
+                when(result.getField("TargetSku").getField("Category").getField("HardwareType") === "Gen5", "Gen5")
+                  .when(result.getField("TargetSku").getField("Category").getField("HardwareType") === "Premium Series", "Premium Series Compute")
+                  .when(result.getField("TargetSku").getField("Category").getField("HardwareType") === "Premium Series - Memory Optimized", "Premium Series Memory Optimized Compute")
+                  .otherwise("Unknown")
+              )
+              .withField(
+                "targetPlatform",
+                result.getField("TargetSku").getField("Category").getField("SqlTargetPlatform")
+              )
+              .withField(
+                "storageMaxSizeInGb",
+                result.getField("TargetSku").getField("StorageMaxSizeInMb") / 1024
+              )
+              .withField(
+                "computeSize",
+                result.getField("TargetSku").getField("ComputeSize")
+              )
+          )
+        )
+      )
+    )
   }
 
   private def addServiceTier(df: DataFrame): DataFrame = {
@@ -37,28 +78,111 @@ object SQLDBPricing {
     )
   }
 
-  def enrichWithStoragePricing(storagePricingDF: DataFrame): DataFrame => DataFrame = { platformDf => 
+  // def enrichWithStoragePricing(storagePricingDF: DataFrame): DataFrame => DataFrame = { platformDf => 
+  //     val filteredStorageDf = storagePricingDF
+  //       .filter(
+  //         col("location") === "US West" &&
+  //         col("type") === PricingType.Consumption.toString
+  //       )
+  //       .select(col("skuName"), col("retailPrice"))
+      
+  //     platformDf
+  //       .join(filteredStorageDf, col("sqlServiceTier") === col("skuName"))
+  //       .withColumn("storageCost", calculateStorageCost())
+  // }
+
+    def enrichWithStoragePricing(storagePricingDF: DataFrame): DataFrame => DataFrame = { platformDf => 
+
       val filteredStorageDf = storagePricingDF
         .filter(
           col("location") === "US West" &&
           col("type") === PricingType.Consumption.toString
         )
         .select(col("skuName"), col("retailPrice"))
+
+      val storageMapExprEntries = filteredStorageDf
+        .select(
+          col("skuName").as("key"),
+          col("retailPrice").as("value")
+        )
+        .collect()
+        .flatMap(row => Seq(lit(row.getString(0)), lit(row.getDouble(1))))
+
+      val storagePricingExpr = map(storageMapExprEntries: _*)
       
-      platformDf
-        .join(filteredStorageDf, col("sqlServiceTier") === col("skuName"))
-        .withColumn("storageCost", calculateStorageCost())
+      platformDf.withColumn(
+        "SkuRecommendationForServers",
+        transform(col("SkuRecommendationForServers"), server =>
+          server.withField(
+            "SkuRecommendationResults",
+            transform(server.getField("SkuRecommendationResults"), result =>
+              result.withField(
+                  "storageCost",
+                  bround(
+                    when(
+                      result.getField("targetPlatform") === PlatformType.AzureSqlManagedInstance.toString,
+                      coalesce(element_at(storagePricingExpr, result.getField("sqlServiceTier")), lit(0.0)) *
+                        greatest(result.getField("storageMaxSizeInGb") - 32, lit(0))
+                    ).otherwise(
+                      coalesce(element_at(storagePricingExpr, result.getField("sqlServiceTier")), lit(0.0)) *
+                        (result.getField("storageMaxSizeInGb") * 1.3)
+                    ),
+                    2
+                  )
+              )
+            )
+          )
+        )
+      )
   }
 
-  def enrichWithReservedPricing(pricingDf: DataFrame, reservationTerm: String): DataFrame => DataFrame = { platformDf =>
-    val computeCostDf = platformDf
-      .join(getMinComputePrice(pricingDf, reservationTerm), Seq("sqlServiceTier", "sqlHardwareType"), "inner")
+  // def enrichWithReservedPricing(pricingDf: DataFrame, reservationTerm: String): DataFrame => DataFrame = { platformDf =>
+    
+  //   val computeCostDf = platformDf
+  //     .join(getMinComputePrice(pricingDf, reservationTerm), Seq("sqlServiceTier", "sqlHardwareType"), "inner")
 
-    computeCostDf      
-      .withColumn(s"computeCost_${reservationTermToColName(reservationTerm)}",
-        computeMonthlyCost(
-          col("computeSize") * col(s"minRetailPrice_$reservationTerm"),
-          reservationTermToFactor(reservationTerm)
+  //   computeCostDf      
+  //     .withColumn(s"computeCost_${reservationTermToColName(reservationTerm)}",
+  //       computeMonthlyCost(
+  //         col("computeSize") * col(s"minRetailPrice_$reservationTerm"),
+  //         reservationTermToFactor(reservationTerm)
+  //       )
+  //     )
+  // }
+
+  
+  def enrichWithReservedPricing(pricingDf: DataFrame, reservationTerm: String): DataFrame => DataFrame = { platformDf =>
+    
+    val pricingMapExprEntries = getMinComputePrice(pricingDf, reservationTerm)
+      .select(
+        concat_ws("|", col("sqlServiceTier"), col("sqlHardwareType")).as("key"),
+        col(s"minRetailPrice_$reservationTerm").as("value")
+      )
+      .collect()
+      .flatMap(row => Seq(lit(row.getString(0)), lit(row.getDouble(1))))
+
+    val pricingExpr = map(pricingMapExprEntries: _*)
+
+    platformDf.withColumn(
+      "SkuRecommendationForServers",
+      transform(col("SkuRecommendationForServers"), server =>
+        server.withField(
+          "SkuRecommendationResults",
+          transform(server.getField("SkuRecommendationResults"), result =>
+            result.withField(
+                s"computeCost_${reservationTermToColName(reservationTerm)}",
+                computeMonthlyCost(result.getField("computeSize") *
+                coalesce(
+                  element_at(
+                  pricingExpr,
+                  concat_ws("|", result.getField("sqlServiceTier"), result.getField("sqlHardwareType"))
+                ), 
+                lit(0.0)),
+                reservationTermToFactor(reservationTerm)
+                )
+              )
+            )
+          )
         )
       )
   }
@@ -103,25 +227,58 @@ object SQLDBPricing {
     round(priceColumn / months, 2)
   }
 
-  def addMonthlyCostOptions(): DataFrame => DataFrame = { df =>
-    df.withColumn("monthlyCostOptions", array(
-      struct(
-        lit("With1YearRIAndProd").as("keyName"),
-        struct(
-          col("computeCost_1Yr").as("computeCost"),
-          col("storageCost"),
-          lit(0.0).as("iopsCost")
-        ).as("keyValue")
-      ),
-      struct(
-        lit("With3YearRIAndProd").as("keyName"),
-        struct(
-          col("computeCost_3Yr").as("computeCost"),
-          col("storageCost"),
-          lit(0.0).as("iopsCost")
-        ).as("keyValue")
-      )
-    ))
+  // def addMonthlyCostOptions(): DataFrame => DataFrame = { df =>
+  //   df.withColumn("monthlyCostOptions", array(
+  //     struct(
+  //       lit("With1YearRIAndProd").as("keyName"),
+  //       struct(
+  //         col("computeCost_1Yr").as("computeCost"),
+  //         col("storageCost"),
+  //         lit(0.0).as("iopsCost")
+  //       ).as("keyValue")
+  //     ),
+  //     struct(
+  //       lit("With3YearRIAndProd").as("keyName"),
+  //       struct(
+  //         col("computeCost_3Yr").as("computeCost"),
+  //         col("storageCost"),
+  //         lit(0.0).as("iopsCost")
+  //       ).as("keyValue")
+  //     )
+  //   ))
+  // }
+
+   def addMonthlyCostOptions(): DataFrame => DataFrame = { df =>
+    df.withColumn(
+      "SkuRecommendationForServers",
+      transform(col("SkuRecommendationForServers"), server =>
+        server.withField(
+          "SkuRecommendationResults",
+          transform(server.getField("SkuRecommendationResults"), result =>
+            result.withField(
+              "monthlyCostOptions",
+              array(
+                struct(
+                  lit("With1YearRIAndProd").as("keyName"),
+                  struct(
+                    result.getField("computeCost_1Yr").as("computeCost"),
+                    result.getField("storageCost").as("storageCost"),
+                    lit(0.0).as("iopsCost")
+                  ).as("keyValue")
+                ),
+                struct(
+                  lit("With3YearRIAndProd").as("keyName"),
+                  struct(
+                    result.getField("computeCost_3Yr").as("computeCost"),
+                    result.getField("storageCost").as("storageCost"),
+                    lit(0.0).as("iopsCost")
+                  ).as("keyValue")
+                )
+              )
+            )
+          )
+        )
+      ))
   }
 
   private val reservationTermToColName: Map[String, String] = Map(

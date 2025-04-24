@@ -6,41 +6,109 @@ import example.constants.{PricingType, RecommendationConstants, DiskTypeToTierMa
 
 object IaaSPricing {
 
+  // def transformPlatform(): DataFrame => DataFrame = { df =>
+  //   df
+  //     .withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
+  //     .withColumn("SkuRecommendationResults", explode(col("SkuRecommendationForServers.SkuRecommendationResults")))
+  //     .withColumn("armSkuName", col("SkuRecommendationResults.TargetSku.VirtualMachineSize.AzureSkuName"))
+  //     .withColumn(
+  //       "allDisks",
+  //       flatten(array(
+  //         coalesce(col("SkuRecommendationResults.TargetSku.DataDiskSizes"), array()),
+  //         coalesce(col("SkuRecommendationResults.TargetSku.LogDiskSizes"), array()),
+  //         coalesce(col("SkuRecommendationResults.TargetSku.TempDbDiskSizes"), array())
+  //       ))
+  //     )
+  //     .withColumn("disk", explode(col("allDisks")))
+  // }
+
   def transformPlatform(): DataFrame => DataFrame = { df =>
-    df
-      .withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
-      .withColumn("SkuRecommendationResults", explode(col("SkuRecommendationForServers.SkuRecommendationResults")))
-      .withColumn("armSkuName", col("SkuRecommendationResults.TargetSku.VirtualMachineSize.AzureSkuName"))
-      .withColumn(
-        "allDisks",
-        flatten(array(
-          coalesce(col("SkuRecommendationResults.TargetSku.DataDiskSizes"), array()),
-          coalesce(col("SkuRecommendationResults.TargetSku.LogDiskSizes"), array()),
-          coalesce(col("SkuRecommendationResults.TargetSku.TempDbDiskSizes"), array())
-        ))
+    df.withColumn(
+      "SkuRecommendationForServers",
+      transform(col("SkuRecommendationForServers"), server =>
+        server.withField(
+          "SkuRecommendationResults",
+          transform(server.getField("SkuRecommendationResults"), result =>
+            result
+              .withField("armSkuName", result.getField("TargetSku").getField("VirtualMachineSize").getField("AzureSkuName"))
+              .withField("disks",
+                flatten(array(
+                  coalesce(result.getField("TargetSku").getField("DataDiskSizes"), array()),
+                  coalesce(result.getField("TargetSku").getField("LogDiskSizes"), array()),
+                  coalesce(result.getField("TargetSku").getField("TempDbDiskSizes"), array())
+                )
+              )
+            )
+          )
+        )
       )
-      .withColumn("disk", explode(col("allDisks")))
+    )
   }
 
+  // def enrichWithReservedPricing(pricingDf: DataFrame, reservationTerm: String): DataFrame => DataFrame = { platformDf =>
+  //   val filteredPricing = pricingDf
+  //     .filter(basePricingFilter("Reservation", "US West") &&
+  //       col("reservationTerm") === reservationTerm
+  //     )
+  //     .groupBy("armSkuName")
+  //     .agg(min("retailPrice").alias(s"minRetailPrice_$reservationTerm"))
+
+  //   platformDf
+  //     .join(filteredPricing, Seq("armSkuName"), "left")
+  //     .withColumn(s"computeCostRI_${reservationTermToColName(reservationTerm)}",
+  //       calculateMonthlyCost(
+  //         coalesce(col(s"minRetailPrice_$reservationTerm"), lit(0.0)),
+  //         reservationTermToFactor(reservationTerm),
+  //         _ / _
+  //       )
+  //     )
+  // }
+
   def enrichWithReservedPricing(pricingDf: DataFrame, reservationTerm: String): DataFrame => DataFrame = { platformDf =>
-    val filteredPricing = pricingDf
+    val minPricingDf = pricingDf
       .filter(basePricingFilter("Reservation", "US West") &&
         col("reservationTerm") === reservationTerm
       )
       .groupBy("armSkuName")
       .agg(min("retailPrice").alias(s"minRetailPrice_$reservationTerm"))
 
-    platformDf
-      .join(filteredPricing, Seq("armSkuName"), "left")
-      .withColumn(s"computeCostRI_${reservationTermToColName(reservationTerm)}",
-        calculateMonthlyCost(
-          coalesce(col(s"minRetailPrice_$reservationTerm"), lit(0.0)),
-          reservationTermToFactor(reservationTerm),
-          _ / _
-        )
+    val pricingMapExprEntries = minPricingDf
+      .select(
+        col("armSkuName").as("key"),
+        col(s"minRetailPrice_$reservationTerm").as("value")
       )
+      .collect()
+      .flatMap { row =>
+        Seq(lit(row.getString(0)), lit(row.getDouble(1)))
+      }
+    
+    val pricingExpr = map(pricingMapExprEntries: _*)
+
+    platformDf.withColumn(
+      "SkuRecommendationForServers",
+      transform(col("SkuRecommendationForServers"), server =>
+        server.withField(
+          "SkuRecommendationResults",
+          transform(server.getField("SkuRecommendationResults"), result =>
+            result.withField(
+                s"computeCostRI_${reservationTermToColName(reservationTerm)}",
+                calculateMonthlyCost(
+                  coalesce(
+                    element_at(
+                      pricingExpr,
+                      concat_ws("|", result.getField("armSkuName"))
+                    ), 
+                  lit(0.0)),
+                reservationTermToFactor(reservationTerm),
+                _ / _
+                )
+            )
+          )
+        )
+      ))
   }
 
+  // d
   def enrichWithAspPricing(pricingDf: DataFrame, reservationTerm: String, pricingType: PricingType, label: String): DataFrame => DataFrame = { platformDf =>
     val filteredPricing = pricingDf
       .filter(basePricingFilter(pricingType.toString, "US West") &&
@@ -51,15 +119,41 @@ object IaaSPricing {
       .groupBy("armSkuName")
       .agg(min("savingsPlan.retailPrice").alias(s"minRetailPrice_${label}_$reservationTerm"))
 
-    platformDf
-      .join(filteredPricing, Seq("armSkuName"), "left")
-      .withColumn(s"computeCost${label}_${reservationTermToColName(reservationTerm)}",
-        calculateMonthlyCost(
-          coalesce(col(s"minRetailPrice_${label}_$reservationTerm"), lit(0.0)),
-          24 * 30.5,
-          _ * _
+  val pricingMapExprEntries = filteredPricing
+    .select(
+      col("armSkuName").as("key"),
+      col(s"minRetailPrice_${label}_$reservationTerm").as("value")
+    )
+    .collect()
+    .flatMap { row =>
+      Seq(lit(row.getString(0)), lit(row.getDouble(1)))
+    }
+
+  val pricingExpr = map(pricingMapExprEntries: _*)
+
+  platformDf.withColumn(
+    "SkuRecommendationForServers",
+    transform(col("SkuRecommendationForServers"), server =>
+      server.withField(
+        "SkuRecommendationResults",
+        transform(server.getField("SkuRecommendationResults"), result =>
+          result .withField(
+              s"computeCost${label}_${reservationTermToColName(reservationTerm)}",
+              calculateMonthlyCost(
+                  coalesce(
+                    element_at(
+                      pricingExpr,
+                      result.getField("armSkuName")
+                    ),
+                    lit(0.0)
+                  ),
+                 24 * 30.5,
+                 _ * _
+              )
+          )
         )
       )
+    ))
   }
 
   def enrichWithAspProdPricing(pricingDf: DataFrame, reservationTerm: String): DataFrame => DataFrame =

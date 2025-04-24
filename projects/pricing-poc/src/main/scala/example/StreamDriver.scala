@@ -94,12 +94,40 @@ object StreamDriver extends App {
     .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform)
     .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationDB, spark).transform)
     .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlDatabase, computeDF=computeDBDF, storageDF=storagePaasDF).transform)
+
+  val skuVmDF = skuVmEventStream
+    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform)
+    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationVM, spark).transform)
+    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlVirtualMachine, computeDF=computeVMDF, storageDF=storageVMDF).transform)
   
 
   skuDbDF.printSchema()
 
+  val resultDf = skuDbDF.withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
+      .withColumn("SkuRecommendationResults", explode(col("SkuRecommendationForServers.SkuRecommendationResults")))
+      .select("SkuRecommendationResults", "uploadIdentifier")
+ 
+ 
+//   val selectedDf = resultDf.select(
+//   col("SkuRecommendationResults.computeCostRI_1Year").as("ComputeCost1yr"),
+//   col("SkuRecommendationResults.computeCostRI_3Years").as("ComputeCost3yr"),
+//   col("SkuRecommendationResults.computeCostASPProd_1Year"),
+//   col("SkuRecommendationResults.computeCostASPProd_3Years"),
+//   col("SkuRecommendationResults.computeCostASPDevTest_1Year"),
+//   col("SkuRecommendationResults.computeCostASPDevTest_3Years")
+//   // col("SkuRecommendationResults.storageCost").as("storageCost"),
+//   // col("SkuRecommendationResults.monthlyCostOptions").as("monthlyCostOptions"),
+// )
+
+  val selectedDf = resultDf.select(
+  col("uploadIdentifier"),
+  col("SkuRecommendationResults.DatabaseName").as("databaseName"),
+  col("SkuRecommendationResults.storageCost").as("storageCost"),
+  col("SkuRecommendationResults.monthlyCostOptions").as("monthlyCostOptions"),
+)
+
 //   Process the result, e.g., showing it or saving to a file
-  val query = skuDbDF.writeStream
+  val query = selectedDf.writeStream
     .outputMode("append")
     .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/checkpoint")
     .trigger(Trigger.ProcessingTime("60 seconds")).queryName("myTable")
@@ -110,7 +138,8 @@ object StreamDriver extends App {
     println("Checking data.....")
     Thread.sleep(1000)
     //spark.sql("SELECT computeCost_1Yr, computeCost_3Yr, monthlyCostOptions FROM myTable").show(10000, true)
-    spark.sql("SELECT uploadIdentifier, databaseName, monthlyCostOptions FROM myTable").show(10000, false)  }
+    spark.sql("SELECT * FROM myTable").show(10000, false)  
+  }
   // val skuMiDF = skuMiEventStream
   //   .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform)
   //   .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationMI, spark).transform)
