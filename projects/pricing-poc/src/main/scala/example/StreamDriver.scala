@@ -95,17 +95,17 @@ object StreamDriver extends App {
     .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationDB, spark).transform)
     .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlDatabase, computeDF=computeDBDF, storageDF=storagePaasDF).transform)
 
-  val skuVmDF = skuVmEventStream
-    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform)
-    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationVM, spark).transform)
-    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlVirtualMachine, computeDF=computeVMDF, storageDF=storageVMDF).transform)
+  // val skuVmDF = skuVmEventStream
+  //   .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform)
+  //   .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationVM, spark).transform)
+  //   .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlVirtualMachine, computeDF=computeVMDF, storageDF=storageVMDF).transform)
   
 
-  skuVmDF.printSchema()
+  // skuVmDF.printSchema()
 
-  val resultDf = skuVmDF.withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
-      .withColumn("SkuRecommendationResults", explode(col("SkuRecommendationForServers.SkuRecommendationResults")))
-      .select("SkuRecommendationResults", "uploadIdentifier")
+  // val resultDf = skuVmDF.withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
+  //     .withColumn("SkuRecommendationResults", explode(col("SkuRecommendationForServers.SkuRecommendationResults")))
+  //     .select("SkuRecommendationResults", "uploadIdentifier")
  
  
 //   val selectedDf = resultDf.select(
@@ -119,58 +119,58 @@ object StreamDriver extends App {
 //   // col("SkuRecommendationResults.monthlyCostOptions").as("monthlyCostOptions"),
 // )
 
-  val selectedDf = resultDf.select(
-  col("uploadIdentifier"),
-  //col("SkuRecommendationResults.DatabaseName").as("databaseName"),
-  //col("SkuRecommendationResults.storageCost").as("storageCost"),
-  col("SkuRecommendationResults.monthlyCostOptions").as("monthlyCostOptions"),
-)
+//   val selectedDf = resultDf.select(
+//   col("uploadIdentifier"),
+//   //col("SkuRecommendationResults.DatabaseName").as("databaseName"),
+//   //col("SkuRecommendationResults.storageCost").as("storageCost"),
+//   col("SkuRecommendationResults.monthlyCostOptions").as("monthlyCostOptions"),
+// )
 
-//   Process the result, e.g., showing it or saving to a file
-  val query = selectedDf.writeStream
-    .outputMode("append")
-    .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/checkpoint")
-    .trigger(Trigger.ProcessingTime("60 seconds")).queryName("myTable")
-    .format("memory")
-    .start()
+// //   Process the result, e.g., showing it or saving to a file
+//   val query = selectedDf.writeStream
+//     .outputMode("append")
+//     .option("checkpointLocation", "/workspaces/Migration-Pricing/projects/pricing-poc/src/main/resources/output/checkpoint")
+//     .trigger(Trigger.ProcessingTime("60 seconds")).queryName("myTable")
+//     .format("memory")
+//     .start()
 
-  while(true) {
-    println("Checking data.....")
-    Thread.sleep(1000)
-    //spark.sql("SELECT computeCost_1Yr, computeCost_3Yr, monthlyCostOptions FROM myTable").show(10000, true)
-    spark.sql("SELECT * FROM myTable").show(10000, false)  
-  }
-  // val skuMiDF = skuMiEventStream
-  //   .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform)
-  //   .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationMI, spark).transform)
-  //   .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlManagedInstance, computeDF=computeMIDF, storageDF=storagePaasDF).transform)
+//   while(true) {
+//     println("Checking data.....")
+//     Thread.sleep(1000)
+//     //spark.sql("SELECT computeCost_1Yr, computeCost_3Yr, monthlyCostOptions FROM myTable").show(10000, true)
+//     spark.sql("SELECT * FROM myTable").show(10000, false)  
+//   }
+  val skuMiDF = skuMiEventStream
+    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform)
+    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationMI, spark).transform)
+    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlManagedInstance, computeDF=computeMIDF, storageDF=storagePaasDF).transform)
 
-  // val skuVmDF = skuVmEventStream
-  //   .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform)
-  //   .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationVM, spark).transform)
-  //   .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlVirtualMachine, computeDF=computeVMDF, storageDF=storageVMDF).transform)
+  val skuVmDF = skuVmEventStream
+    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.EventHubRawEventStream, spark).transform)
+    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.SkuRecommendationVM, spark).transform)
+    .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlVirtualMachine, computeDF=computeVMDF, storageDF=storageVMDF).transform)
 
-  // val outputDF = suitDF.transform(
-  //                 MigrationAssessmentTransformer(
-  //                   resourceType = MigrationAssessmentSourceTypes.FullAssessment, 
-  //                   spark = spark, 
-  //                   skuDbDF = skuDbDF, 
-  //                   skuMiDF = skuMiDF, 
-  //                   skuVmDF = skuVmDF
-  //                 ).transform
-  //               ).transform(
-  //                 MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.InstanceUpdate, spark).transform
-  //               )
+  val outputDF = suitDF.transform(
+                  MigrationAssessmentTransformer(
+                    resourceType = MigrationAssessmentSourceTypes.FullAssessment, 
+                    spark = spark, 
+                    skuDbDF = skuDbDF, 
+                    skuMiDF = skuMiDF, 
+                    skuVmDF = skuVmDF
+                  ).transform
+                ).transform(
+                  MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.InstanceUpdate, spark).transform
+                )
 
-  // outputDF.printSchema()
+  outputDF.printSchema()
 
-  // val serializedDF = outputDF
-  // .select(to_json(struct("*")).cast("string").alias("body"))
-  // .selectExpr("CAST(body AS BINARY) AS body")
+  val serializedDF = outputDF
+  .select(to_json(struct("*")).cast("string").alias("body"))
+  .selectExpr("CAST(body AS BINARY) AS body")
 
-  // serializedDF.printSchema()
-  // println("Starting write to event hub....")
-  // val outputFeed = WriteEventHubFeedFormat(sinkEventHubConnection, eventHubCheckPointLocation, authCallback)
-  // EventHubStreamFeed(outputFeed, spark).write(serializedDF)
+  serializedDF.printSchema()
+  println("Starting write to event hub....")
+  val outputFeed = WriteEventHubFeedFormat(sinkEventHubConnection, eventHubCheckPointLocation, authCallback)
+  EventHubStreamFeed(outputFeed, spark).write(serializedDF)
   
 }

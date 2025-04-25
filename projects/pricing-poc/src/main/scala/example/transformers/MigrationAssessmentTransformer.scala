@@ -54,9 +54,9 @@ class MigrationAssessmentTransformer(
   ): DataFrame = {
     df.withColumn("assessmentUploadTime", col("es.enqueuedTime"))
         .withColumn("serverAssessments", col("es.Servers.ServerAssessments"))
-        .withColumn("azuresqlvm_skuRecommendationForServers", col("esrasv.SkuRecommendationForServers"))
-        .withColumn("azuresqldb_skuRecommendationForServers", col("esrasd.SkuRecommendationForServers"))
-        .withColumn("azuresqlmi_skuRecommendationForServers", col("esrasm.SkuRecommendationForServers"))
+        .withColumn("azuresqlvm_skuRecommendationForServers", element_at(col("esrasv.SkuRecommendationForServers"), 1))
+        .withColumn("azuresqldb_skuRecommendationForServers", element_at(col("esrasd.SkuRecommendationForServers"), 1))
+        .withColumn("azuresqlmi_skuRecommendationForServers", element_at(col("esrasm.SkuRecommendationForServers"), 1))
         .withColumn("azuresqlvm_skuRecommendationResults", element_at(col("azuresqlvm_skuRecommendationForServers.SkuRecommendationResults"), 1))
         .withColumn("azuresqldb_skuRecommendationResults", element_at(col("azuresqldb_skuRecommendationForServers.SkuRecommendationResults"), 1))
         .withColumn("azuresqlmi_skuRecommendationResults", element_at(col("azuresqlmi_skuRecommendationForServers.SkuRecommendationResults"), 1))
@@ -72,28 +72,28 @@ class MigrationAssessmentTransformer(
                                     struct(
                                       element_at(col("es.Servers.TargetReadinesses.AzureSqlDatabase.RecommendationStatus"), 1).alias("recommendationStatus"),
                                       element_at(col("es.Servers.TargetReadinesses.AzureSqlDatabase.NumberOfServerBlockerIssues"), 1).alias("numberOfServerBlockerIssues"),
-                                        struct(
-                                            struct(
-                                                col("azuresqldb_skuRecommendationResults.TargetSku.Category.ComputeTier").alias("computeTier"),
-                                                col("azuresqldb_skuRecommendationResults.TargetSku.Category.HardwareType").alias("hardwareType"),
-                                                col("azuresqldb_skuRecommendationResults.TargetSku.Category.SqlPurchasingModel").alias("sqlPurchasingModel"),
-                                                col("azuresqldb_skuRecommendationResults.TargetSku.Category.SqlServiceTier").alias("sqlServiceTier"),
-                                                col("azuresqldb_skuRecommendationResults.TargetSku.Category.ZoneRedundancyAvailable").alias("zoneRedundancyAvailable")
-                                            ).alias("category"),
-                                            col("azuresqldb_skuRecommendationResults.TargetSku.storageMaxSizeInMb").alias("storageMaxSizeInMb"),
-                                            col("azuresqldb_skuRecommendationResults.TargetSku.predictedDataSizeInMb").alias("predictedDataSizeInMb"),
-                                            col("azuresqldb_skuRecommendationResults.TargetSku.predictedLogSizeInMb").alias("predictedLogSizeInMb"),
-                                            col("azuresqldb_skuRecommendationResults.TargetSku.maxStorageIops").alias("maxStorageIops"),
-                                            col("azuresqldb_skuRecommendationResults.TargetSku.maxThroughputMBps").alias("maxThroughputMBps"),
-                                            col("azuresqldb_skuRecommendationResults.TargetSku.computeSize").alias("computeSize")
-                                        ).alias("targetSku"),
-                                        struct(
-                                            col("azuresqldb_skuRecommendationResults.MonthlyCost.ComputeCost").alias("computeCost"),
-                                            col("azuresqldb_skuRecommendationResults.MonthlyCost.StorageCost").alias("storageCost"),
-                                            col("azuresqldb_skuRecommendationResults.MonthlyCost.iopsCost").alias("iopsCost"),
-                                            col("azuresqldb_skuRecommendationResults.MonthlyCost.TotalCost").alias("totalCost")
-                                        ).alias("monthlyCost"),
-                                       col("esrasd.monthlyCostOptions").alias("monthlyCostOptions"),
+                                        //struct(
+                                      //       struct(
+                                      //           col("azuresqldb_skuRecommendationResults.TargetSku.Category.ComputeTier").alias("computeTier"),
+                                      //           col("azuresqldb_skuRecommendationResults.TargetSku.Category.HardwareType").alias("hardwareType"),
+                                      //           col("azuresqldb_skuRecommendationResults.TargetSku.Category.SqlPurchasingModel").alias("sqlPurchasingModel"),
+                                      //           col("azuresqldb_skuRecommendationResults.TargetSku.Category.SqlServiceTier").alias("sqlServiceTier"),
+                                      //           col("azuresqldb_skuRecommendationResults.TargetSku.Category.ZoneRedundancyAvailable").alias("zoneRedundancyAvailable")
+                                      //       ).alias("category"),
+                                      //       col("azuresqldb_skuRecommendationResults.TargetSku.storageMaxSizeInMb").alias("storageMaxSizeInMb"),
+                                      //       col("azuresqldb_skuRecommendationResults.TargetSku.predictedDataSizeInMb").alias("predictedDataSizeInMb"),
+                                      //       col("azuresqldb_skuRecommendationResults.TargetSku.predictedLogSizeInMb").alias("predictedLogSizeInMb"),
+                                      //       col("azuresqldb_skuRecommendationResults.TargetSku.maxStorageIops").alias("maxStorageIops"),
+                                      //       col("azuresqldb_skuRecommendationResults.TargetSku.maxThroughputMBps").alias("maxThroughputMBps"),
+                                      //       col("azuresqldb_skuRecommendationResults.TargetSku.computeSize").alias("computeSize")
+                                      //   ).alias("targetSku"),
+                                      //   struct(
+                                      //       col("azuresqldb_skuRecommendationResults.MonthlyCost.ComputeCost").alias("computeCost"),
+                                      //       col("azuresqldb_skuRecommendationResults.MonthlyCost.StorageCost").alias("storageCost"),
+                                      //       col("azuresqldb_skuRecommendationResults.MonthlyCost.iopsCost").alias("iopsCost"),
+                                      //       col("azuresqldb_skuRecommendationResults.MonthlyCost.TotalCost").alias("totalCost")
+                                      //   ).alias("monthlyCost"),
+                                      //  col("azuresqldb_skuRecommendationResults.monthlyCostOptions").alias("monthlyCostOptions"),
                                     ).alias("azureSqlDatabase"),
                                     struct(
                                         element_at(col("es.Servers.TargetReadinesses.AzureSqlManagedInstance.RecommendationStatus"), 1).alias("recommendationStatus"),
@@ -119,7 +119,7 @@ class MigrationAssessmentTransformer(
                                             col("azuresqlmi_skuRecommendationResults.MonthlyCost.iopsCost").alias("iopsCost"),
                                             col("azuresqlmi_skuRecommendationResults.MonthlyCost.TotalCost").alias("totalCost")
                                         ).alias("monthlyCost"),
-                                        col("esrasm.monthlyCostOptions").alias("monthlyCostOptions"),
+                                        col("azuresqlmi_skuRecommendationResults.monthlyCostOptions").alias("monthlyCostOptions"),
                                     ).alias("azureSqlManagedInstance"),
                                     struct(
                                         lit("Ready").alias("recommendationStatus"),
@@ -150,7 +150,7 @@ class MigrationAssessmentTransformer(
                                             col("azuresqlvm_skuRecommendationResults.MonthlyCost.iopsCost").alias("iopsCost"),
                                             col("azuresqlvm_skuRecommendationResults.MonthlyCost.TotalCost").alias("totalCost")
                                         ).alias("monthlyCost"),
-                                       col("esrasv.monthlyCostOptions").alias("monthlyCostOptions"),
+                                       col("azuresqlvm_skuRecommendationResults.monthlyCostOptions").alias("monthlyCostOptions"),
                                     ).alias("azureSqlVirtualMachine")
                                 ).alias("skuRecommendationResults")
                             ).alias("assessment")
