@@ -101,9 +101,9 @@ object StreamDriver extends App {
     .transform(MigrationAssessmentTransformer(MigrationAssessmentSourceTypes.PricingComputation, spark, PlatformType.AzureSqlVirtualMachine, computeDF=computeVMDF, storageDF=storageVMDF).transform)
   
 
-  skuDbDF.printSchema()
+  skuVmDF.printSchema()
 
-  val resultDf = skuDbDF.withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
+  val resultDf = skuVmDF.withColumn("SkuRecommendationForServers", explode(col("SkuRecommendationForServers")))
       .withColumn("SkuRecommendationResults", explode(col("SkuRecommendationForServers.SkuRecommendationResults")))
       .select("SkuRecommendationResults", "uploadIdentifier")
  
@@ -121,8 +121,8 @@ object StreamDriver extends App {
 
   val selectedDf = resultDf.select(
   col("uploadIdentifier"),
-  col("SkuRecommendationResults.DatabaseName").as("databaseName"),
-  col("SkuRecommendationResults.storageCost").as("storageCost"),
+  //col("SkuRecommendationResults.DatabaseName").as("databaseName"),
+  //col("SkuRecommendationResults.storageCost").as("storageCost"),
   col("SkuRecommendationResults.monthlyCostOptions").as("monthlyCostOptions"),
 )
 
