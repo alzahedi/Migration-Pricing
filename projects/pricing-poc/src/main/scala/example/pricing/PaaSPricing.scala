@@ -136,6 +136,64 @@ object PaaSPricing {
       )
   }
 
+  def enrichWithLicensePricing(licenseDF: DataFrame): DataFrame => DataFrame = { platformDf => 
+
+    licenseDF.show(false)
+    val filteredLicenseDF = licenseDF
+      .filter(
+        col("type") === PricingType.Consumption.toString
+      )
+      .withColumn("sqlServiceTier",
+        when(col("productName").contains("General Purpose"), "General Purpose")
+          .when(col("productName").contains("Business Critical"), "Business Critical")
+          .when(col("productName").contains("Hyperscale"), "Hyperscale")
+          .otherwise("Unknown")
+      )
+      .groupBy("sqlServiceTier")
+      .agg(min("retailPrice").alias("minRetailPrice"))
+
+      filteredLicenseDF.show(false)
+
+      val licenseMapEntries = filteredLicenseDF
+        .select(
+          col("sqlServiceTier").as("key"),
+          col("minRetailPrice").as("value")
+        )
+        .collect()
+        .flatMap(row => Seq(lit(row.getString(0)), lit(row.getDouble(1))))
+
+      val licensePricingExpr = map(licenseMapEntries: _*)
+
+      val resultDF = platformDf.withColumn(
+        "SkuRecommendationForServers",
+        transform(col("SkuRecommendationForServers"), server =>
+          server.withField(
+            "SkuRecommendationResults",
+            transform(server.getField("SkuRecommendationResults"), result =>
+              result.withField(
+                  "MonthlyCost",
+                    result.getField("MonthlyCost").withField(
+                      "SqlLicenseCost",
+                      calculateMonthlyCost(result.getField("computeSize") *
+                      coalesce(
+                        element_at(
+                        licensePricingExpr,
+                         result.getField("sqlServiceTier")),
+                         lit(0.0)
+                      ), 
+                      24 * 30.5,
+                      _*_
+                      ),
+                )
+              )
+            )
+          )
+        )
+      )
+      //resultDF.printSchema()
+      resultDF
+  }
+
   // def enrichWithReservedPricing(pricingDf: DataFrame, reservationTerm: String): DataFrame => DataFrame = { platformDf =>
     
   //   val computeCostDf = platformDf
@@ -226,6 +284,10 @@ object PaaSPricing {
   private def computeMonthlyCost(priceColumn: Column, months: Double): Column = {
     round(priceColumn / months, 2)
   }
+
+  
+  private def calculateMonthlyCost(column: Column, factor: Double, op: (Column, Double) => Column): Column =
+    round(op(column, factor), 2)
 
   // def addMonthlyCostOptions(): DataFrame => DataFrame = { df =>
   //   df.withColumn("monthlyCostOptions", array(

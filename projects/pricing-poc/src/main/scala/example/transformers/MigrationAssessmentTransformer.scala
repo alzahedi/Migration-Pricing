@@ -23,7 +23,8 @@ class MigrationAssessmentTransformer(
     skuMiDF: DataFrame = null,
     skuVmDF: DataFrame = null,
     computeDF: DataFrame = null,
-    storageDF: DataFrame = null
+    storageDF: DataFrame = null,
+    licenseDF: DataFrame = null
 ) extends DataTransformer {
 
   override def transform(df: DataFrame): DataFrame = {
@@ -116,6 +117,7 @@ class MigrationAssessmentTransformer(
                                         struct(
                                             col("azuresqlmi_skuRecommendationResults.MonthlyCost.ComputeCost").alias("computeCost"),
                                             col("azuresqlmi_skuRecommendationResults.MonthlyCost.StorageCost").alias("storageCost"),
+                                            col("azuresqlmi_skuRecommendationResults.MonthlyCost.SqlLicenseCost").alias("sqlLicenseCost"),
                                             col("azuresqlmi_skuRecommendationResults.MonthlyCost.iopsCost").alias("iopsCost"),
                                             col("azuresqlmi_skuRecommendationResults.MonthlyCost.TotalCost").alias("totalCost")
                                         ).alias("monthlyCost"),
@@ -186,7 +188,7 @@ class MigrationAssessmentTransformer(
           s"Unsupported platform: $platformType"
         )
     }
-    computation.compute(df, computeDF, storageDF)
+    computation.compute(df, computeDF, storageDF, licenseDF)
   }
 
   private def processTypedEventHubStream(df: DataFrame): DataFrame = {
@@ -217,8 +219,9 @@ object MigrationAssessmentTransformer {
     skuMiDF: DataFrame = null,
     skuVmDF: DataFrame = null,
     computeDF: DataFrame = null,
-    storageDF: DataFrame = null
+    storageDF: DataFrame = null, 
+    licenseDF: DataFrame = null
 ): MigrationAssessmentTransformer = {
-    new MigrationAssessmentTransformer(resourceType, spark, platformType, skuDbDF, skuMiDF, skuVmDF, computeDF, storageDF)
+    new MigrationAssessmentTransformer(resourceType, spark, platformType, skuDbDF, skuMiDF, skuVmDF, computeDF, storageDF, licenseDF)
   }
 }

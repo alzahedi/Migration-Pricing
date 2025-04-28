@@ -20,8 +20,8 @@ class BlobReader(fileName: String, spark: SparkSession) extends DataReader {
     )
 
     val blobUrl = s"$baseBlobUrl/$fileName"
-    val rawDF = JsonReader(blobUrl, spark).read()
-    rawDF.selectExpr("explode(Content) as Content").select("Content.*")
+    JsonReader(blobUrl, spark).read()
+    
   }
 }
 
