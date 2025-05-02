@@ -229,14 +229,15 @@ object PaaSPricing {
           transform(server.getField("SkuRecommendationResults"), result =>
             result.withField(
                 s"computeCost_${reservationTermToColName(reservationTerm)}",
-                computeMonthlyCost(result.getField("computeSize") *
+                calculateMonthlyCost(result.getField("computeSize") *
                 coalesce(
                   element_at(
                   pricingExpr,
                   concat_ws("|", result.getField("sqlServiceTier"), result.getField("sqlHardwareType"))
                 ), 
                 lit(0.0)),
-                reservationTermToFactor(reservationTerm)
+                reservationTermToFactor(reservationTerm),
+                _/_
                 )
               )
             )
@@ -281,9 +282,9 @@ object PaaSPricing {
     )
   }
 
-  private def computeMonthlyCost(priceColumn: Column, months: Double): Column = {
-    round(priceColumn / months, 2)
-  }
+  // private def computeMonthlyCost(priceColumn: Column, months: Double): Column = {
+  //   round(priceColumn / months, 2)
+  // }
 
   
   private def calculateMonthlyCost(column: Column, factor: Double, op: (Column, Double) => Column): Column =
